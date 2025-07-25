@@ -42,6 +42,10 @@ export default function PreciseAnalyticsATSHomepage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // Added filter state
+    // Add these state variables with your existing ones (around line 37-43)
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordStatus, setForgotPasswordStatus] = useState('');
 
   // Theme matching your branding - More muted and professional
   const theme = {
@@ -119,6 +123,43 @@ export default function PreciseAnalyticsATSHomepage() {
       setIsLoading(false);
     }
   };
+
+  // Add this after handleLogin function
+const handleForgotPassword = async () => {
+  if (!forgotPasswordEmail) {
+    setForgotPasswordStatus('Please enter your email address');
+    return;
+  }
+
+  setIsLoading(true);
+  setForgotPasswordStatus('');
+
+  try {
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotPasswordEmail }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      setForgotPasswordStatus('✅ Password reset instructions sent to your email');
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setForgotPasswordEmail('');
+        setForgotPasswordStatus('');
+      }, 3000);
+    } else {
+      setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    setForgotPasswordStatus('Network error. Please contact your administrator.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const fetchApplications = async () => {
     try {
