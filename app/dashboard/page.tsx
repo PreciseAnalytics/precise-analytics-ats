@@ -33,7 +33,7 @@ type StageColors = {
   border: string;
 };
 
-export default function PreciseAnalyticsATSHomepage() {
+export default function DashboardPage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -41,22 +41,26 @@ export default function PreciseAnalyticsATSHomepage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  
+  // NEW: Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState('');
 
-  // Enhanced theme with better colors and spacing
+  // Enhanced theme with better colors and spacing - matches main website
   const theme = {
     primaryGreen: '#9ACD32',
     primaryOrange: '#FF7F00',
-    darkBlue: '#2B4566',
+    darkBlue: '#1e3a8a', // Deeper blue for government feel
+    navy: '#1e40af',
     tealAccent: '#40E0D0',
-    gradient: 'linear-gradient(135deg, #9ACD32, #40E0D0)',
+    gradient: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%)',
     orangeGradient: 'linear-gradient(135deg, #FF7F00, #FF8C00)',
+    greenGradient: 'linear-gradient(135deg, #9ACD32, #40E0D0)',
     textColor: 'rgb(51, 65, 85)',
     textLight: 'rgba(51, 65, 85, 0.8)',
     cardBackground: 'rgba(255, 255, 255, 0.98)',
-    background: 'rgb(248, 250, 252)',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
     shadowMd: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     shadowLg: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
     shadowXl: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
@@ -115,6 +119,43 @@ export default function PreciseAnalyticsATSHomepage() {
     }
   };
 
+  // NEW: Forgot password handler
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      setForgotPasswordStatus('Please enter your email address');
+      return;
+    }
+
+    setIsLoading(true);
+    setForgotPasswordStatus('');
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotPasswordEmail }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setForgotPasswordStatus('✅ Password reset instructions sent to your email');
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setForgotPasswordEmail('');
+          setForgotPasswordStatus('');
+        }, 3000);
+      } else {
+        setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      setForgotPasswordStatus('Network error. Please contact your administrator.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchApplications = async () => {
     try {
       const response = await fetch('/api/applications');
@@ -144,47 +185,9 @@ export default function PreciseAnalyticsATSHomepage() {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!forgotPasswordEmail) {
-      setForgotPasswordStatus('Please enter your email address');
-      return;
-    }
-
-    setIsLoading(true);
-    setForgotPasswordStatus('');
-
-    try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: forgotPasswordEmail }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setForgotPasswordStatus('Password reset instructions sent to your email');
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotPasswordEmail('');
-          setForgotPasswordStatus('');
-        }, 3000);
-      } else {
-        setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
-      }
-    } catch (error) {
-      console.error('Forgot password error:', error);
-      setForgotPasswordStatus('Network error. Please contact your administrator.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Homepage redirect function
   const goToHomepage = () => {
-    window.open('https://preciseanalytics.io', '_blank');
+    window.location.href = '/';
   };
 
   const formatDate = (dateString: string) => {
@@ -296,8 +299,7 @@ export default function PreciseAnalyticsATSHomepage() {
             }}
           >
             <Home size={18} />
-            Website
-            <ExternalLink size={14} />
+            ATS Home
           </button>
           
           <button
@@ -730,16 +732,17 @@ export default function PreciseAnalyticsATSHomepage() {
     return (
       <div style={{ 
         minHeight: '100vh',
-        background: `linear-gradient(135deg, ${theme.darkBlue} 0%, #34495e 100%)`,
+        background: theme.background,
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         display: 'flex',
         flexDirection: 'column'
       }}>
         <header style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-          padding: '1.5rem 0'
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+          padding: '1.5rem 0',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
         }}>
           <div style={{
             maxWidth: '1400px',
@@ -759,7 +762,7 @@ export default function PreciseAnalyticsATSHomepage() {
               onClick={goToHomepage}
             >
               <div style={{
-                background: theme.darkBlue,
+                background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
                 padding: '1.5rem',
                 borderRadius: '16px',
                 display: 'flex',
@@ -767,7 +770,8 @@ export default function PreciseAnalyticsATSHomepage() {
                 alignItems: 'center',
                 minWidth: '220px',
                 transition: 'all 0.3s ease',
-                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)'
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+                border: '1px solid rgba(59, 130, 246, 0.3)'
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
@@ -802,10 +806,44 @@ export default function PreciseAnalyticsATSHomepage() {
                 <p style={{
                   fontSize: '0.8rem',
                   color: theme.primaryOrange,
-                  margin: 0,
+                  margin: '0 0 0.5rem 0',
                   fontWeight: '700',
                   letterSpacing: '0.8px'
                 }}>YOUR DATA, OUR INSIGHTS!</p>
+                <div style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    color: '#22c55e',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  }}>VOSB</span>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>SDVOSB</span>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(147, 51, 234, 0.2)',
+                    color: '#9333ea',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(147, 51, 234, 0.3)'
+                  }}>MBE</span>
+                </div>
               </div>
               <div style={{ color: 'white' }}>
                 <h2 style={{
@@ -820,11 +858,35 @@ export default function PreciseAnalyticsATSHomepage() {
                 <p style={{
                   fontSize: '1.2rem',
                   color: 'rgba(255, 255, 255, 0.8)',
-                  margin: 0,
+                  margin: '0 0 0.5rem 0',
                   fontWeight: '500'
                 }}>
                   Human Resources Portal
                 </p>
+                <div style={{
+                  display: 'flex',
+                  gap: '1rem',
+                  alignItems: 'center'
+                }}>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    color: '#22c55e',
+                    padding: '0.3rem 0.8rem',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  }}>🔒 Secure Federal Portal</span>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    padding: '0.3rem 0.8rem',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>🇺🇸 Veteran-Owned</span>
+                </div>
               </div>
             </div>
           </div>
@@ -837,16 +899,17 @@ export default function PreciseAnalyticsATSHomepage() {
   return (
     <div style={{ 
       minHeight: '100vh',
-      background: `linear-gradient(135deg, ${theme.darkBlue} 0%, #34495e 100%)`,
+      background: theme.background,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       display: 'flex',
       flexDirection: 'column'
     }}>
       <header style={{
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-        padding: '1.5rem 0'
+        background: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+        padding: '1.5rem 0',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
       }}>
         <div style={{
           maxWidth: '1400px',
@@ -866,7 +929,7 @@ export default function PreciseAnalyticsATSHomepage() {
             onClick={goToHomepage}
           >
             <div style={{
-              background: theme.darkBlue,
+              background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
               padding: '1.5rem',
               borderRadius: '16px',
               display: 'flex',
@@ -874,7 +937,8 @@ export default function PreciseAnalyticsATSHomepage() {
               alignItems: 'center',
               minWidth: '220px',
               transition: 'all 0.3s ease',
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)'
+              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+              border: '1px solid rgba(59, 130, 246, 0.3)'
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
@@ -909,10 +973,44 @@ export default function PreciseAnalyticsATSHomepage() {
               <p style={{
                 fontSize: '0.8rem',
                 color: theme.primaryOrange,
-                margin: 0,
+                margin: '0 0 0.5rem 0',
                 fontWeight: '700',
                 letterSpacing: '0.8px'
               }}>YOUR DATA, OUR INSIGHTS!</p>
+              <div style={{
+                display: 'flex',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                justifyContent: 'center'
+              }}>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#22c55e',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}>VOSB</span>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  color: '#3b82f6',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(59, 130, 246, 0.3)'
+                }}>SDVOSB</span>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(147, 51, 234, 0.2)',
+                  color: '#9333ea',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(147, 51, 234, 0.3)'
+                }}>MBE</span>
+              </div>
             </div>
             <div style={{ color: 'white' }}>
               <h2 style={{
@@ -927,11 +1025,35 @@ export default function PreciseAnalyticsATSHomepage() {
               <p style={{
                 fontSize: '1.2rem',
                 color: 'rgba(255, 255, 255, 0.8)',
-                margin: 0,
+                margin: '0 0 0.5rem 0',
                 fontWeight: '500'
               }}>
                 Human Resources Portal
               </p>
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center'
+              }}>
+                <span style={{
+                  fontSize: '0.9rem',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#22c55e',
+                  padding: '0.3rem 0.8rem',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}>🔒 Secure Federal Portal</span>
+                <span style={{
+                  fontSize: '0.9rem',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  color: '#3b82f6',
+                  padding: '0.3rem 0.8rem',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(59, 130, 246, 0.3)'
+                }}>🇺🇸 Veteran-Owned</span>
+              </div>
             </div>
           </div>
           
@@ -987,7 +1109,7 @@ export default function PreciseAnalyticsATSHomepage() {
           <div style={{
             width: '100px',
             height: '100px',
-            background: theme.gradient,
+            background: theme.greenGradient,
             borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
@@ -1103,6 +1225,7 @@ export default function PreciseAnalyticsATSHomepage() {
         </div>
       </div>
 
+      {/* Enhanced Login Modal with Forgot Password */}
       {isLoginOpen && (
         <div style={{
           position: 'fixed',
@@ -1153,7 +1276,7 @@ export default function PreciseAnalyticsATSHomepage() {
               <div style={{
                 width: '90px',
                 height: '90px',
-                background: theme.gradient,
+                background: theme.greenGradient,
                 borderRadius: '24px',
                 display: 'flex',
                 alignItems: 'center',
@@ -1169,7 +1292,7 @@ export default function PreciseAnalyticsATSHomepage() {
                 color: theme.textColor,
                 margin: '0 0 0.75rem 0'
               }}>
-                HR Portal Login
+                {showForgotPassword ? 'Reset Password' : 'HR Portal Login'}
               </h2>
               <p style={{
                 color: theme.textLight,
@@ -1177,7 +1300,10 @@ export default function PreciseAnalyticsATSHomepage() {
                 fontSize: '1.1rem',
                 fontWeight: '500'
               }}>
-                Welcome back! Please sign in to continue.
+                {showForgotPassword ? 
+                  'Enter your email to receive reset instructions' : 
+                  'Welcome back! Please sign in to continue.'
+                }
               </p>
             </div>
 
@@ -1191,9 +1317,28 @@ export default function PreciseAnalyticsATSHomepage() {
                   borderRadius: '12px',
                   marginBottom: '1.5rem',
                   fontSize: '1rem',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  textAlign: 'center'
                 }}>
                   {loginError}
+                </div>
+              )}
+
+              {forgotPasswordStatus && (
+                <div style={{
+                  background: forgotPasswordStatus.includes('✅') ? 
+                    'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `2px solid ${forgotPasswordStatus.includes('✅') ? 
+                    'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  color: forgotPasswordStatus.includes('✅') ? '#22c55e' : '#ef4444',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  marginBottom: '1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  textAlign: 'center'
+                }}>
+                  {forgotPasswordStatus}
                 </div>
               )}
 
@@ -1268,7 +1413,7 @@ export default function PreciseAnalyticsATSHomepage() {
                     disabled={isLoading}
                     style={{
                       width: '100%',
-                      background: theme.gradient,
+                      background: theme.greenGradient,
                       color: 'white',
                       border: 'none',
                       padding: '1.5rem',
@@ -1297,67 +1442,39 @@ export default function PreciseAnalyticsATSHomepage() {
                     {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
                   </button>
 
-                  <div style={{ textAlign: 'center' }}>
+                  <div style={{ 
+                    textAlign: 'center',
+                    borderTop: '2px solid rgba(154, 205, 50, 0.2)',
+                    paddingTop: '1.5rem'
+                  }}>
                     <button
                       onClick={() => setShowForgotPassword(true)}
                       style={{
-                        background: 'none',
-                        border: 'none',
+                        background: 'rgba(249, 115, 22, 0.1)',
+                        border: '2px solid rgba(249, 115, 22, 0.3)',
                         color: theme.primaryOrange,
-                        fontSize: '1rem',
-                        fontWeight: '600',
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
                         cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: '0.5rem'
+                        padding: '1rem 2rem',
+                        borderRadius: '12px',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.15)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.1)';
+                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
-                      Forgot your password?
+                      🔑 Forgot your password?
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{
-                    textAlign: 'center',
-                    marginBottom: '2rem',
-                    padding: '1.5rem',
-                    background: 'rgba(154, 205, 50, 0.08)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(154, 205, 50, 0.2)'
-                  }}>
-                    <h3 style={{
-                      fontSize: '1.4rem',
-                      fontWeight: '700',
-                      color: theme.textColor,
-                      margin: '0 0 0.5rem 0'
-                    }}>Reset Your Password</h3>
-                    <p style={{
-                      color: theme.textLight,
-                      margin: 0,
-                      fontSize: '1rem'
-                    }}>
-                      Enter your email address and we'll send you instructions to reset your password.
-                    </p>
-                  </div>
-
-                  {forgotPasswordStatus && (
-                    <div style={{
-                      background: forgotPasswordStatus.includes('sent') ? 
-                        'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                      border: `2px solid ${forgotPasswordStatus.includes('sent') ? 
-                        'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                      color: forgotPasswordStatus.includes('sent') ? '#22c55e' : '#ef4444',
-                      padding: '1rem',
-                      borderRadius: '12px',
-                      marginBottom: '1.5rem',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      textAlign: 'center'
-                    }}>
-                      {forgotPasswordStatus}
-                    </div>
-                  )}
-
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1390,7 +1507,7 @@ export default function PreciseAnalyticsATSHomepage() {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                     <button
                       onClick={() => {
                         setShowForgotPassword(false);
@@ -1427,19 +1544,19 @@ export default function PreciseAnalyticsATSHomepage() {
                         fontWeight: '700',
                         cursor: isLoading ? 'not-allowed' : 'pointer',
                         transition: 'all 0.3s ease',
-                        boxShadow: '0 4px 15px rgba(255, 127, 0, 0.3)',
+                        boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
                         opacity: isLoading ? 0.7 : 1
                       }}
                       onMouseOver={(e) => {
                         if (!isLoading) {
                           e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 127, 0, 0.4)';
+                          e.currentTarget.style.boxShadow = '0 8px 25px rgba(249, 115, 22, 0.4)';
                         }
                       }}
                       onMouseOut={(e) => {
                         if (!isLoading) {
                           e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 127, 0, 0.3)';
+                          e.currentTarget.style.boxShadow = '0 4px 15px rgba(249, 115, 22, 0.3)';
                         }
                       }}
                     >
@@ -1452,7 +1569,6 @@ export default function PreciseAnalyticsATSHomepage() {
 
             <div style={{
               textAlign: 'center',
-              marginTop: '2rem',
               fontSize: '0.95rem',
               color: theme.textLight,
               fontWeight: '500'
