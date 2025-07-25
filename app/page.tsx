@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Users, Search, UserPlus, FileText, BarChart3 } from 'lucide-react';
+import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink } from 'lucide-react';
 
 // Define types for your application
 type User = {
@@ -33,7 +33,7 @@ type StageColors = {
   border: string;
 };
 
-export default function PreciseAnalyticsATSHomepage() {
+export default function DashboardPage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -41,34 +41,29 @@ export default function PreciseAnalyticsATSHomepage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // Added filter state
-  // Add these state variables with your existing ones (around line 37-43)
+  
+  // NEW: Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState('');
 
-  // Theme matching your branding - More muted and professional
+  // Enhanced theme with better colors and spacing - matches main website
   const theme = {
-    primaryGreen: '#7BA428', // More muted green
-    primaryOrange: '#E6650D', // More muted orange  
-    darkBlue: '#2B4566',
-    tealAccent: '#2D9B95', // More muted teal
-    gradient: 'linear-gradient(135deg, #7BA428, #2D9B95)',
-    orangeGradient: 'linear-gradient(135deg, #E6650D, #F07B3C)',
+    primaryGreen: '#9ACD32',
+    primaryOrange: '#FF7F00',
+    darkBlue: '#1e3a8a', // Deeper blue for government feel
+    navy: '#1e40af',
+    tealAccent: '#40E0D0',
+    gradient: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%)',
+    orangeGradient: 'linear-gradient(135deg, #FF7F00, #FF8C00)',
+    greenGradient: 'linear-gradient(135deg, #9ACD32, #40E0D0)',
     textColor: 'rgb(51, 65, 85)',
-    textLight: 'rgba(51, 65, 85, 0.7)',
-    textMuted: 'rgba(51, 65, 85, 0.5)',
+    textLight: 'rgba(51, 65, 85, 0.8)',
     cardBackground: 'rgba(255, 255, 255, 0.98)',
-    background: 'rgb(248, 250, 252)',
-    backgroundSecondary: 'rgb(241, 245, 249)',
-    shadowSm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
     shadowMd: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    shadowLg: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-    borderLight: 'rgba(226, 232, 240, 0.8)',
-    success: '#059669',
-    warning: '#D97706', 
-    danger: '#DC2626',
-    info: '#0284C7'
+    shadowLg: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    shadowXl: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
   };
 
   // Check for existing authentication on component mount
@@ -124,7 +119,7 @@ export default function PreciseAnalyticsATSHomepage() {
     }
   };
 
-  // Add this after handleLogin function
+  // NEW: Forgot password handler
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail) {
       setForgotPasswordStatus('Please enter your email address');
@@ -143,7 +138,7 @@ export default function PreciseAnalyticsATSHomepage() {
 
       const result = await response.json();
 
-      if (result.success || result.message) {
+      if (result.success) {
         setForgotPasswordStatus('✅ Password reset instructions sent to your email');
         setTimeout(() => {
           setShowForgotPassword(false);
@@ -182,14 +177,17 @@ export default function PreciseAnalyticsATSHomepage() {
       setIsLoggedIn(false);
       setUser(null);
       setApplications([]);
-      setActiveFilter('all'); // Reset filter on logout
     } catch (error) {
       console.error('Logout error:', error);
       setIsLoggedIn(false);
       setUser(null);
       setApplications([]);
-      setActiveFilter('all');
     }
+  };
+
+  // Homepage redirect function
+  const goToHomepage = () => {
+    window.location.href = '/';
   };
 
   const formatDate = (dateString: string) => {
@@ -202,16 +200,15 @@ export default function PreciseAnalyticsATSHomepage() {
 
   const getStageColors = (stage: string): StageColors => {
     const colors: Record<string, StageColors> = {
-      'applied': { bg: 'rgba(59, 130, 246, 0.08)', text: '#1D4ED8', border: 'rgba(59, 130, 246, 0.2)' },
-      'submitted': { bg: 'rgba(59, 130, 246, 0.08)', text: '#1D4ED8', border: 'rgba(59, 130, 246, 0.2)' },
-      'screening': { bg: 'rgba(217, 119, 6, 0.08)', text: '#A16207', border: 'rgba(217, 119, 6, 0.2)' },
-      'technical review': { bg: 'rgba(147, 51, 234, 0.08)', text: '#7C2D12', border: 'rgba(147, 51, 234, 0.2)' },
-      'interview': { bg: 'rgba(230, 101, 13, 0.08)', text: '#C2410C', border: 'rgba(230, 101, 13, 0.2)' },
-      'offer': { bg: 'rgba(5, 150, 105, 0.08)', text: '#047857', border: 'rgba(5, 150, 105, 0.2)' },
-      'hired': { bg: 'rgba(5, 150, 105, 0.12)', text: '#065F46', border: 'rgba(5, 150, 105, 0.3)' },
-      'rejected': { bg: 'rgba(220, 38, 38, 0.08)', text: '#B91C1C', border: 'rgba(220, 38, 38, 0.2)' }
+      'Applied': { bg: 'rgba(59, 130, 246, 0.12)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
+      'Screening': { bg: 'rgba(251, 191, 36, 0.12)', text: '#f59e0b', border: 'rgba(251, 191, 36, 0.3)' },
+      'Technical Review': { bg: 'rgba(147, 51, 234, 0.12)', text: '#9333ea', border: 'rgba(147, 51, 234, 0.3)' },
+      'Interview': { bg: 'rgba(255, 125, 0, 0.12)', text: '#ff7d00', border: 'rgba(255, 125, 0, 0.3)' },
+      'Offer': { bg: 'rgba(34, 197, 94, 0.12)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)' },
+      'Hired': { bg: 'rgba(34, 197, 94, 0.2)', text: '#15803d', border: 'rgba(34, 197, 94, 0.5)' },
+      'Rejected': { bg: 'rgba(239, 68, 68, 0.12)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' }
     };
-    return colors[stage.toLowerCase()] || colors['applied'];
+    return colors[stage] || colors['Applied'];
   };
 
   // Create dots pattern for logo
@@ -240,621 +237,512 @@ export default function PreciseAnalyticsATSHomepage() {
     ).flat();
   };
 
-  const ApplicationsDashboard = () => {
-    // Filter applications based on active filter
-    const getFilteredApplications = () => {
-      switch (activeFilter) {
-        case 'in_review':
-          return applications.filter(app => app.stage === 'interview');
-        case 'new_today':
-          return applications.filter(app => 
-            new Date(app.applied_date).toDateString() === new Date().toDateString()
-          );
-        case 'all':
-        default:
-          return applications;
-      }
-    };
-
-    const filteredApplications = getFilteredApplications();
-
-    // Calculate stats
-    const totalApplications = applications.length;
-    const inReviewCount = applications.filter(app => app.stage === 'interview').length;
-    const newTodayCount = applications.filter(app => 
-      new Date(app.applied_date).toDateString() === new Date().toDateString()
-    ).length;
-
-    // Handle filter clicks
-    const handleFilterClick = (filterType: string) => {
-      setActiveFilter(activeFilter === filterType ? 'all' : filterType);
-    };
-
-    return (
-      <div style={{ 
-        background: theme.backgroundSecondary,
-        minHeight: 'calc(100vh - 120px)',
-        padding: '2rem 0'
+  const ApplicationsDashboard = () => (
+    <div style={{ padding: '2.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '3rem',
+        padding: '2rem',
+        background: theme.cardBackground,
+        borderRadius: '16px',
+        boxShadow: theme.shadowMd
       }}>
-        <div style={{ 
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: '0 2rem'
-        }}>
-          {/* Header Section */}
-          <div style={{
-            background: theme.cardBackground,
-            borderRadius: '16px',
-            padding: '2rem',
-            marginBottom: '2rem',
-            boxShadow: theme.shadowMd,
-            border: `1px solid ${theme.borderLight}`
+        <div>
+          <h2 style={{
+            fontSize: '2.5rem',
+            fontWeight: '800',
+            color: theme.textColor,
+            margin: '0 0 0.5rem 0',
+            letterSpacing: '-0.025em'
           }}>
-            <div style={{
+            Applications Dashboard
+          </h2>
+          <p style={{
+            color: theme.textLight,
+            margin: 0,
+            fontSize: '1.2rem',
+            fontWeight: '500'
+          }}>
+            Welcome back, <span style={{color: theme.primaryGreen, fontWeight: '600'}}>{user?.name || user?.email}</span>
+          </p>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button
+            onClick={goToHomepage}
+            style={{
               display: 'flex',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
-              <div>
-                <h1 style={{
-                  fontSize: '2.5rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  margin: '0 0 0.5rem 0',
-                  letterSpacing: '-0.025em'
-                }}>
-                  Applications Dashboard
-                </h1>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  flexWrap: 'wrap'
-                }}>
-                  <p style={{
-                    color: theme.textLight,
-                    margin: 0,
-                    fontSize: '1.1rem'
-                  }}>
-                    Welcome back, <span style={{ fontWeight: '600', color: theme.textColor }}>{user?.name || user?.email}</span>
-                  </p>
-                  {activeFilter !== 'all' && (
-                    <button
-                      onClick={() => setActiveFilter('all')}
-                      style={{
-                        background: 'rgba(220, 38, 38, 0.05)',
-                        color: theme.danger,
-                        border: `1px solid rgba(220, 38, 38, 0.15)`,
-                        padding: '0.5rem 1rem',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.1)';
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      Clear Filter ×
-                    </button>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'rgba(220, 38, 38, 0.05)',
-                  color: theme.danger,
-                  border: `1px solid rgba(220, 38, 38, 0.15)`,
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontWeight: '500',
-                  fontSize: '1rem',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.1)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            {/* Total Applications Card */}
-            <div 
-              onClick={() => handleFilterClick('all')}
-              style={{
-                background: activeFilter === 'all' ? 
-                  `linear-gradient(135deg, rgba(123, 164, 40, 0.05), rgba(45, 155, 149, 0.05))` : 
-                  theme.cardBackground,
-                padding: '2rem',
-                borderRadius: '16px',
-                boxShadow: activeFilter === 'all' ? theme.shadowLg : theme.shadowMd,
-                cursor: 'pointer',
-                border: activeFilter === 'all' ? 
-                  `2px solid rgba(123, 164, 40, 0.2)` : 
-                  `1px solid ${theme.borderLight}`,
-                transition: 'all 0.3s ease',
-                transform: activeFilter === 'all' ? 'translateY(-4px)' : 'translateY(0)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseOver={(e) => {
-                if (activeFilter !== 'all') {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = theme.shadowLg;
-                }
-              }}
-              onMouseOut={(e) => {
-                if (activeFilter !== 'all') {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = theme.shadowMd;
-                }
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '1rem'
-              }}>
-                <h3 style={{ 
-                  color: theme.textColor, 
-                  margin: 0,
-                  fontSize: '1.1rem',
-                  fontWeight: '600'
-                }}>Total Applications</h3>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: theme.primaryGreen,
-                  opacity: activeFilter === 'all' ? 1 : 0.3
-                }} />
-              </div>
-              <p style={{ 
-                fontSize: '3rem', 
-                fontWeight: '800', 
-                color: theme.primaryGreen, 
-                margin: '0 0 0.5rem 0',
-                lineHeight: 1
-              }}>
-                {totalApplications}
-              </p>
-              <p style={{ 
-                fontSize: '0.9rem', 
-                color: theme.textMuted, 
-                margin: 0
-              }}>
-                Click to view all applications
-              </p>
-            </div>
-
-            {/* In Review Card */}
-            <div 
-              onClick={() => handleFilterClick('in_review')}
-              style={{
-                background: activeFilter === 'in_review' ? 
-                  `linear-gradient(135deg, rgba(230, 101, 13, 0.05), rgba(240, 123, 60, 0.05))` : 
-                  theme.cardBackground,
-                padding: '2rem',
-                borderRadius: '16px',
-                boxShadow: activeFilter === 'in_review' ? theme.shadowLg : theme.shadowMd,
-                cursor: 'pointer',
-                border: activeFilter === 'in_review' ? 
-                  `2px solid rgba(230, 101, 13, 0.2)` : 
-                  `1px solid ${theme.borderLight}`,
-                transition: 'all 0.3s ease',
-                transform: activeFilter === 'in_review' ? 'translateY(-4px)' : 'translateY(0)'
-              }}
-              onMouseOver={(e) => {
-                if (activeFilter !== 'in_review') {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = theme.shadowLg;
-                }
-              }}
-              onMouseOut={(e) => {
-                if (activeFilter !== 'in_review') {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = theme.shadowMd;
-                }
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '1rem'
-              }}>
-                <h3 style={{ 
-                  color: theme.textColor, 
-                  margin: 0,
-                  fontSize: '1.1rem',
-                  fontWeight: '600'
-                }}>In Review</h3>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: theme.primaryOrange,
-                  opacity: activeFilter === 'in_review' ? 1 : 0.3
-                }} />
-              </div>
-              <p style={{ 
-                fontSize: '3rem', 
-                fontWeight: '800', 
-                color: theme.primaryOrange, 
-                margin: '0 0 0.5rem 0',
-                lineHeight: 1
-              }}>
-                {inReviewCount}
-              </p>
-              <p style={{ 
-                fontSize: '0.9rem', 
-                color: theme.textMuted, 
-                margin: 0
-              }}>
-                Applications in interview stage
-              </p>
-            </div>
-
-            {/* New Today Card */}
-            <div 
-              onClick={() => handleFilterClick('new_today')}
-              style={{
-                background: activeFilter === 'new_today' ? 
-                  `linear-gradient(135deg, rgba(45, 155, 149, 0.05), rgba(72, 187, 120, 0.05))` : 
-                  theme.cardBackground,
-                padding: '2rem',
-                borderRadius: '16px',
-                boxShadow: activeFilter === 'new_today' ? theme.shadowLg : theme.shadowMd,
-                cursor: 'pointer',
-                border: activeFilter === 'new_today' ? 
-                  `2px solid rgba(45, 155, 149, 0.2)` : 
-                  `1px solid ${theme.borderLight}`,
-                transition: 'all 0.3s ease',
-                transform: activeFilter === 'new_today' ? 'translateY(-4px)' : 'translateY(0)'
-              }}
-              onMouseOver={(e) => {
-                if (activeFilter !== 'new_today') {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = theme.shadowLg;
-                }
-              }}
-              onMouseOut={(e) => {
-                if (activeFilter !== 'new_today') {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = theme.shadowMd;
-                }
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '1rem'
-              }}>
-                <h3 style={{ 
-                  color: theme.textColor, 
-                  margin: 0,
-                  fontSize: '1.1rem',
-                  fontWeight: '600'
-                }}>New Today</h3>
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: theme.tealAccent,
-                  opacity: activeFilter === 'new_today' ? 1 : 0.3
-                }} />
-              </div>
-              <p style={{ 
-                fontSize: '3rem', 
-                fontWeight: '800', 
-                color: theme.tealAccent, 
-                margin: '0 0 0.5rem 0',
-                lineHeight: 1
-              }}>
-                {newTodayCount}
-              </p>
-              <p style={{ 
-                fontSize: '0.9rem', 
-                color: theme.textMuted, 
-                margin: 0
-              }}>
-                Applications received today
-              </p>
-            </div>
-          </div>
-
-          {/* Applications Table */}
-          <div style={{
-            background: theme.cardBackground,
-            borderRadius: '16px',
-            boxShadow: theme.shadowMd,
-            overflow: 'hidden',
-            border: `1px solid ${theme.borderLight}`
-          }}>
-            <div style={{
-              padding: '2rem',
-              borderBottom: `1px solid ${theme.borderLight}`,
-              background: `linear-gradient(135deg, rgba(123, 164, 40, 0.02), rgba(45, 155, 149, 0.02))`,
+              gap: '0.5rem',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: '#3b82f6',
+              border: '2px solid rgba(59, 130, 246, 0.2)',
+              padding: '0.75rem 1.25rem',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600',
+              transition: 'all 0.3s ease',
+              textDecoration: 'none'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(59, 130, 246, 0.2)';
+              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+            }}
+          >
+            <Home size={18} />
+            ATS Home
+          </button>
+          
+          <button
+            onClick={handleLogout}
+            style={{
               display: 'flex',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
-              <div>
-                <h2 style={{
-                  fontSize: '1.8rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  margin: '0 0 0.25rem 0'
-                }}>
-                  {activeFilter === 'all' && 'All Applications'}
-                  {activeFilter === 'in_review' && 'Applications In Review'}
-                  {activeFilter === 'new_today' && 'Today\'s Applications'}
-                </h2>
-                <p style={{
-                  fontSize: '1rem',
-                  color: theme.textLight,
-                  margin: 0
-                }}>
-                  Manage and track candidate applications
-                </p>
-              </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <span style={{
-                  fontSize: '0.9rem',
-                  color: theme.textLight,
-                  background: `rgba(123, 164, 40, 0.05)`,
-                  padding: '0.5rem 1rem',
-                  borderRadius: '25px',
-                  border: `1px solid rgba(123, 164, 40, 0.1)`,
-                  fontWeight: '500'
-                }}>
-                  {filteredApplications.length} {filteredApplications.length === 1 ? 'application' : 'applications'}
-                </span>
-              </div>
-            </div>
-            
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: theme.backgroundSecondary }}>
-                  <tr>
-                    <th style={{
-                      padding: '1.25rem 1.5rem',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      color: theme.textLight,
-                      letterSpacing: '0.025em',
-                      textTransform: 'uppercase'
-                    }}>Candidate</th>
-                    <th style={{
-                      padding: '1.25rem 1.5rem',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      color: theme.textLight,
-                      letterSpacing: '0.025em',
-                      textTransform: 'uppercase'
-                    }}>Position</th>
-                    <th style={{
-                      padding: '1.25rem 1.5rem',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      color: theme.textLight,
-                      letterSpacing: '0.025em',
-                      textTransform: 'uppercase'
-                    }}>Stage</th>
-                    <th style={{
-                      padding: '1.25rem 1.5rem',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      color: theme.textLight,
-                      letterSpacing: '0.025em',
-                      textTransform: 'uppercase'
-                    }}>Applied</th>
-                    <th style={{
-                      padding: '1.25rem 1.5rem',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      color: theme.textLight,
-                      letterSpacing: '0.025em',
-                      textTransform: 'uppercase'
-                    }}>Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredApplications.map((application, index) => {
-                    const stageColors = getStageColors(application.stage);
-                    return (
-                      <tr 
-                        key={application.id} 
-                        style={{
-                          borderBottom: `1px solid ${theme.borderLight}`,
-                          transition: 'background 0.2s ease'
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.background = 'rgba(123, 164, 40, 0.02)';
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <td style={{ padding: '1.5rem' }}>
-                          <div>
-                            <div style={{
-                              fontSize: '1rem',
-                              fontWeight: '600',
-                              color: theme.textColor,
-                              marginBottom: '0.25rem'
-                            }}>
-                              {application.first_name} {application.last_name}
-                            </div>
-                            <div style={{
-                              fontSize: '0.875rem',
-                              color: theme.textLight
-                            }}>
-                              {application.email}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '1.5rem' }}>
-                          <div style={{
-                            fontSize: '0.95rem',
-                            fontWeight: '500',
-                            color: theme.textColor,
-                            marginBottom: '0.25rem'
-                          }}>
-                            {application.position}
-                          </div>
-                          <div style={{
-                            fontSize: '0.875rem',
-                            color: theme.textLight
-                          }}>
-                            {application.location}
-                          </div>
-                        </td>
-                        <td style={{ padding: '1.5rem' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            padding: '0.5rem 1rem',
-                            fontSize: '0.875rem',
-                            fontWeight: '500',
-                            borderRadius: '20px',
-                            background: stageColors.bg,
-                            color: stageColors.text,
-                            border: `1px solid ${stageColors.border}`,
-                            textTransform: 'capitalize'
-                          }}>
-                            {application.stage}
-                          </span>
-                        </td>
-                        <td style={{ 
-                          padding: '1.5rem',
-                          fontSize: '0.95rem',
-                          color: theme.textLight,
-                          fontWeight: '500'
-                        }}>
-                          {formatDate(application.applied_date)}
-                        </td>
-                        <td style={{ 
-                          padding: '1.5rem',
-                          fontSize: '0.875rem',
-                          color: theme.textMuted,
-                          textTransform: 'capitalize'
-                        }}>
-                          {application.source.replace('_', ' ')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              
-              {filteredApplications.length === 0 && (
-                <div style={{
-                  padding: '4rem 2rem',
-                  textAlign: 'center',
-                  color: theme.textLight
-                }}>
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    background: `rgba(123, 164, 40, 0.1)`,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 1.5rem',
-                    border: `2px solid rgba(123, 164, 40, 0.2)`
-                  }}>
-                    <Search size={24} color={theme.primaryGreen} />
-                  </div>
-                  <h3 style={{
-                    fontSize: '1.25rem',
-                    fontWeight: '600',
-                    color: theme.textColor,
-                    margin: '0 0 0.5rem 0'
-                  }}>
-                    {activeFilter === 'all' && 'No applications found'}
-                    {activeFilter === 'in_review' && 'No applications in review'}
-                    {activeFilter === 'new_today' && 'No new applications today'}
-                  </h3>
-                  <p style={{
-                    color: theme.textLight,
-                    margin: 0,
-                    fontSize: '1rem'
-                  }}>
-                    {activeFilter === 'all' && 'Applications from your careers page will appear here.'}
-                    {activeFilter === 'in_review' && 'Applications will appear here when they reach interview stage.'}
-                    {activeFilter === 'new_today' && 'Check back later for today\'s applications.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+              gap: '0.5rem',
+              background: theme.orangeGradient,
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 15px rgba(255, 127, 0, 0.3)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 127, 0, 0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 127, 0, 0.3)';
+            }}
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
         </div>
       </div>
-    );
-  };
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '2rem',
+        marginBottom: '3rem'
+      }}>
+        <div style={{
+          background: theme.cardBackground,
+          padding: '2rem',
+          borderRadius: '16px',
+          boxShadow: theme.shadowMd,
+          border: '1px solid rgba(154, 205, 50, 0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{
+              background: 'rgba(154, 205, 50, 0.1)',
+              padding: '0.75rem',
+              borderRadius: '12px',
+              marginRight: '1rem'
+            }}>
+              <FileText size={24} color={theme.primaryGreen} />
+            </div>
+            <h3 style={{ 
+              color: theme.textColor, 
+              margin: 0,
+              fontSize: '1.1rem',
+              fontWeight: '600'
+            }}>Total Applications</h3>
+          </div>
+          <p style={{ 
+            fontSize: '2.5rem', 
+            fontWeight: '800', 
+            color: theme.primaryGreen, 
+            margin: 0,
+            letterSpacing: '-0.02em'
+          }}>
+            {applications.length}
+          </p>
+          <p style={{
+            fontSize: '0.9rem',
+            color: theme.textLight,
+            margin: '0.5rem 0 0 0'
+          }}>
+            All time submissions
+          </p>
+        </div>
+        
+        <div style={{
+          background: theme.cardBackground,
+          padding: '2rem',
+          borderRadius: '16px',
+          boxShadow: theme.shadowMd,
+          border: '1px solid rgba(255, 127, 0, 0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{
+              background: 'rgba(255, 127, 0, 0.1)',
+              padding: '0.75rem',
+              borderRadius: '12px',
+              marginRight: '1rem'
+            }}>
+              <Users size={24} color={theme.primaryOrange} />
+            </div>
+            <h3 style={{ 
+              color: theme.textColor, 
+              margin: 0,
+              fontSize: '1.1rem',
+              fontWeight: '600'
+            }}>In Review</h3>
+          </div>
+          <p style={{ 
+            fontSize: '2.5rem', 
+            fontWeight: '800', 
+            color: theme.primaryOrange, 
+            margin: 0,
+            letterSpacing: '-0.02em'
+          }}>
+            {applications.filter(app => app.stage === 'Interview').length}
+          </p>
+          <p style={{
+            fontSize: '0.9rem',
+            color: theme.textLight,
+            margin: '0.5rem 0 0 0'
+          }}>
+            Active interviews
+          </p>
+        </div>
+        
+        <div style={{
+          background: theme.cardBackground,
+          padding: '2rem',
+          borderRadius: '16px',
+          boxShadow: theme.shadowMd,
+          border: '1px solid rgba(64, 224, 208, 0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{
+              background: 'rgba(64, 224, 208, 0.1)',
+              padding: '0.75rem',
+              borderRadius: '12px',
+              marginRight: '1rem'
+            }}>
+              <BarChart3 size={24} color={theme.tealAccent} />
+            </div>
+            <h3 style={{ 
+              color: theme.textColor, 
+              margin: 0,
+              fontSize: '1.1rem',
+              fontWeight: '600'
+            }}>New Today</h3>
+          </div>
+          <p style={{ 
+            fontSize: '2.5rem', 
+            fontWeight: '800', 
+            color: theme.tealAccent, 
+            margin: 0,
+            letterSpacing: '-0.02em'
+          }}>
+            {applications.filter(app => 
+              new Date(app.applied_date).toDateString() === new Date().toDateString()
+            ).length}
+          </p>
+          <p style={{
+            fontSize: '0.9rem',
+            color: theme.textLight,
+            margin: '0.5rem 0 0 0'
+          }}>
+            Today's submissions
+          </p>
+        </div>
+      </div>
+
+      <div style={{
+        background: theme.cardBackground,
+        borderRadius: '16px',
+        boxShadow: theme.shadowLg,
+        overflow: 'hidden',
+        border: '1px solid rgba(0, 0, 0, 0.05)'
+      }}>
+        <div style={{
+          padding: '2rem',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+          background: 'linear-gradient(135deg, rgba(154, 205, 50, 0.08), rgba(64, 224, 208, 0.08))'
+        }}>
+          <h3 style={{
+            fontSize: '1.8rem',
+            fontWeight: '700',
+            color: theme.textColor,
+            margin: '0 0 0.5rem 0'
+          }}>
+            Recent Applications
+          </h3>
+          <p style={{
+            color: theme.textLight,
+            margin: 0,
+            fontSize: '1.1rem'
+          }}>
+            Latest candidate submissions from preciseanalytics.io/careers
+          </p>
+        </div>
+        
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead style={{ background: 'rgba(248, 250, 252, 0.8)' }}>
+              <tr>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Candidate</th>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Position</th>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Status</th>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Applied</th>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Source</th>
+                <th style={{
+                  padding: '1.5rem',
+                  textAlign: 'left',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: theme.textColor,
+                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
+                }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {applications.map((application) => {
+                const stageColors = getStageColors(application.stage);
+                return (
+                  <tr key={application.id} style={{
+                    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'rgba(248, 250, 252, 0.5)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}>
+                    <td style={{ padding: '1.5rem' }}>
+                      <div>
+                        <div style={{
+                          fontSize: '1.1rem',
+                          fontWeight: '700',
+                          color: theme.textColor,
+                          marginBottom: '0.3rem'
+                        }}>
+                          {application.first_name} {application.last_name}
+                        </div>
+                        <div style={{
+                          fontSize: '0.95rem',
+                          color: theme.textLight
+                        }}>
+                          {application.email}
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '1.5rem' }}>
+                      <div style={{
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        color: theme.textColor,
+                        marginBottom: '0.2rem'
+                      }}>
+                        {application.position}
+                      </div>
+                      <div style={{
+                        fontSize: '0.9rem',
+                        color: theme.textLight
+                      }}>
+                        {application.location}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1.5rem' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '700',
+                        borderRadius: '20px',
+                        background: stageColors.bg,
+                        color: stageColors.text,
+                        border: `2px solid ${stageColors.border}`
+                      }}>
+                        {application.stage}
+                      </span>
+                    </td>
+                    <td style={{ 
+                      padding: '1.5rem',
+                      fontSize: '1rem',
+                      fontWeight: '500',
+                      color: theme.textLight
+                    }}>
+                      {formatDate(application.applied_date)}
+                    </td>
+                    <td style={{ 
+                      padding: '1.5rem',
+                      fontSize: '0.95rem',
+                      color: theme.textLight
+                    }}>
+                      <span style={{
+                        background: 'rgba(154, 205, 50, 0.1)',
+                        color: theme.primaryGreen,
+                        padding: '0.3rem 0.8rem',
+                        borderRadius: '12px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600'
+                      }}>
+                        {application.source}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button style={{
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          color: '#3b82f6',
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}>
+                          View
+                        </button>
+                        <button style={{
+                          background: 'rgba(255, 127, 0, 0.1)',
+                          color: theme.primaryOrange,
+                          border: '1px solid rgba(255, 127, 0, 0.2)',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}>
+                          Contact
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          
+          {applications.length === 0 && (
+            <div style={{
+              padding: '3rem',
+              textAlign: 'center',
+              color: theme.textLight
+            }}>
+              <div style={{
+                fontSize: '1.2rem',
+                marginBottom: '0.5rem',
+                fontWeight: '600'
+              }}>
+                No applications yet
+              </div>
+              <p style={{ margin: 0, fontSize: '1rem' }}>
+                Applications from your careers page will appear here automatically.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Footer */}
+      <div style={{
+        marginTop: '3rem',
+        textAlign: 'center',
+        padding: '2rem',
+        background: theme.cardBackground,
+        borderRadius: '16px',
+        boxShadow: theme.shadowMd
+      }}>
+        <p style={{
+          fontSize: '1rem',
+          fontWeight: '600',
+          color: theme.textColor,
+          margin: '0 0 0.5rem 0'
+        }}>
+          Precise Analytics ATS • Virginia SDVOSB • Minority-Owned Business
+        </p>
+        <p style={{
+          fontSize: '0.9rem',
+          color: theme.textLight,
+          margin: 0
+        }}>
+          Secure federal contracting recruitment platform
+        </p>
+      </div>
+    </div>
+  );
 
   const quickActions = [
-    { icon: <Search size={24} />, title: 'View Applications', description: 'Browse candidates' },
-    { icon: <UserPlus size={24} />, title: 'Add Position', description: 'Create job posting' },
-    { icon: <FileText size={24} />, title: 'Reports', description: 'Generate analytics' },
-    { icon: <BarChart3 size={24} />, title: 'Pipeline', description: 'Track progress' }
+    { icon: <Search size={28} />, title: 'View Applications', description: 'Browse all candidates' },
+    { icon: <UserPlus size={28} />, title: 'Add Position', description: 'Create job posting' },
+    { icon: <FileText size={28} />, title: 'Reports', description: 'Generate analytics' },
+    { icon: <BarChart3 size={28} />, title: 'Pipeline', description: 'Track progress' }
   ];
 
   if (isLoggedIn) {
     return (
       <div style={{ 
         minHeight: '100vh',
-        background: `linear-gradient(135deg, ${theme.darkBlue} 0%, #1F2937 100%)`,
+        background: theme.background,
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         display: 'flex',
         flexDirection: 'column'
       }}>
         <header style={{
-          background: 'rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
-          padding: '1rem 0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+          padding: '1.5rem 0',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
         }}>
           <div style={{
             maxWidth: '1400px',
@@ -864,68 +752,141 @@ export default function PreciseAnalyticsATSHomepage() {
             alignItems: 'center',
             justifyContent: 'space-between'
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.5rem'
-            }}>
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2rem',
+                cursor: 'pointer'
+              }}
+              onClick={goToHomepage}
+            >
               <div style={{
-                background: 'rgba(43, 69, 102, 0.8)',
-                padding: '1rem',
-                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
+                padding: '1.5rem',
+                borderRadius: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                minWidth: '200px',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
+                minWidth: '220px',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+                border: '1px solid rgba(59, 130, 246, 0.3)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
               }}>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: '3px',
-                  marginBottom: '0.5rem'
+                  gap: '4px',
+                  marginBottom: '0.75rem'
                 }}>
                   {createDotsPattern()}
                 </div>
                 <h1 style={{
-                  fontSize: '1.2rem',
-                  fontWeight: '700',
+                  fontSize: '1.4rem',
+                  fontWeight: '800',
                   color: theme.primaryGreen,
                   margin: '0.5rem 0 0.2rem 0',
-                  letterSpacing: '1px'
+                  letterSpacing: '1.5px'
                 }}>PRECISE</h1>
                 <h1 style={{
-                  fontSize: '1.2rem',
-                  fontWeight: '700',
+                  fontSize: '1.4rem',
+                  fontWeight: '800',
                   color: theme.primaryGreen,
-                  margin: '0 0 0.2rem 0',
-                  letterSpacing: '1px'
+                  margin: '0 0 0.3rem 0',
+                  letterSpacing: '1.5px'
                 }}>ANALYTICS</h1>
                 <p style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.8rem',
                   color: theme.primaryOrange,
-                  margin: 0,
-                  fontWeight: '600',
-                  letterSpacing: '0.5px'
+                  margin: '0 0 0.5rem 0',
+                  fontWeight: '700',
+                  letterSpacing: '0.8px'
                 }}>YOUR DATA, OUR INSIGHTS!</p>
+                <div style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    color: '#22c55e',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  }}>VOSB</span>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>SDVOSB</span>
+                  <span style={{
+                    fontSize: '0.6rem',
+                    background: 'rgba(147, 51, 234, 0.2)',
+                    color: '#9333ea',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(147, 51, 234, 0.3)'
+                  }}>MBE</span>
+                </div>
               </div>
               <div style={{ color: 'white' }}>
                 <h2 style={{
-                  fontSize: '1.8rem',
-                  fontWeight: '700',
+                  fontSize: '2.2rem',
+                  fontWeight: '800',
                   color: 'white',
-                  margin: 0
+                  margin: '0 0 0.5rem 0',
+                  letterSpacing: '-0.02em'
                 }}>
                   Applicant Tracking System
                 </h2>
                 <p style={{
-                  fontSize: '1rem',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0.5rem 0 0 0'
+                  fontSize: '1.2rem',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  margin: '0 0 0.5rem 0',
+                  fontWeight: '500'
                 }}>
                   Human Resources Portal
                 </p>
+                <div style={{
+                  display: 'flex',
+                  gap: '1rem',
+                  alignItems: 'center'
+                }}>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    color: '#22c55e',
+                    padding: '0.3rem 0.8rem',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  }}>🔒 Secure Federal Portal</span>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    padding: '0.3rem 0.8rem',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>🇺🇸 Veteran-Owned</span>
+                </div>
               </div>
             </div>
           </div>
@@ -938,85 +899,161 @@ export default function PreciseAnalyticsATSHomepage() {
   return (
     <div style={{ 
       minHeight: '100vh',
-      background: `linear-gradient(135deg, ${theme.darkBlue} 0%, #34495e 100%)`,
+      background: theme.background,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       display: 'flex',
       flexDirection: 'column'
     }}>
       <header style={{
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-        padding: '1rem 0'
+        background: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+        padding: '1.5rem 0',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
       }}>
         <div style={{
-          maxWidth: '120rem',
+          maxWidth: '1400px',
           margin: '0 auto',
           padding: '0 2rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.5rem'
-          }}>
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2rem',
+              cursor: 'pointer'
+            }}
+            onClick={goToHomepage}
+          >
             <div style={{
-              background: theme.darkBlue,
-              padding: '1rem',
-              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
+              padding: '1.5rem',
+              borderRadius: '16px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              minWidth: '200px'
+              minWidth: '220px',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+              border: '1px solid rgba(59, 130, 246, 0.3)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
             }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '3px',
-                marginBottom: '0.5rem'
+                gap: '4px',
+                marginBottom: '0.75rem'
               }}>
                 {createDotsPattern()}
               </div>
               <h1 style={{
-                fontSize: '1.2rem',
-                fontWeight: '700',
+                fontSize: '1.4rem',
+                fontWeight: '800',
                 color: theme.primaryGreen,
                 margin: '0.5rem 0 0.2rem 0',
-                letterSpacing: '1px'
+                letterSpacing: '1.5px'
               }}>PRECISE</h1>
               <h1 style={{
-                fontSize: '1.2rem',
-                fontWeight: '700',
+                fontSize: '1.4rem',
+                fontWeight: '800',
                 color: theme.primaryGreen,
-                margin: '0 0 0.2rem 0',
-                letterSpacing: '1px'
+                margin: '0 0 0.3rem 0',
+                letterSpacing: '1.5px'
               }}>ANALYTICS</h1>
               <p style={{
-                fontSize: '0.7rem',
+                fontSize: '0.8rem',
                 color: theme.primaryOrange,
-                margin: 0,
-                fontWeight: '600',
-                letterSpacing: '0.5px'
+                margin: '0 0 0.5rem 0',
+                fontWeight: '700',
+                letterSpacing: '0.8px'
               }}>YOUR DATA, OUR INSIGHTS!</p>
+              <div style={{
+                display: 'flex',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                justifyContent: 'center'
+              }}>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#22c55e',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}>VOSB</span>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  color: '#3b82f6',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(59, 130, 246, 0.3)'
+                }}>SDVOSB</span>
+                <span style={{
+                  fontSize: '0.6rem',
+                  background: 'rgba(147, 51, 234, 0.2)',
+                  color: '#9333ea',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(147, 51, 234, 0.3)'
+                }}>MBE</span>
+              </div>
             </div>
             <div style={{ color: 'white' }}>
               <h2 style={{
-                fontSize: '1.8rem',
-                fontWeight: '700',
+                fontSize: '2.2rem',
+                fontWeight: '800',
                 color: 'white',
-                margin: 0
+                margin: '0 0 0.5rem 0',
+                letterSpacing: '-0.02em'
               }}>
                 Applicant Tracking System
               </h2>
               <p style={{
-                fontSize: '1rem',
+                fontSize: '1.2rem',
                 color: 'rgba(255, 255, 255, 0.8)',
-                margin: '0.5rem 0 0 0'
+                margin: '0 0 0.5rem 0',
+                fontWeight: '500'
               }}>
                 Human Resources Portal
               </p>
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center'
+              }}>
+                <span style={{
+                  fontSize: '0.9rem',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#22c55e',
+                  padding: '0.3rem 0.8rem',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}>🔒 Secure Federal Portal</span>
+                <span style={{
+                  fontSize: '0.9rem',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  color: '#3b82f6',
+                  padding: '0.3rem 0.8rem',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  border: '1px solid rgba(59, 130, 246, 0.3)'
+                }}>🇺🇸 Veteran-Owned</span>
+              </div>
             </div>
           </div>
           
@@ -1026,27 +1063,27 @@ export default function PreciseAnalyticsATSHomepage() {
               background: theme.orangeGradient,
               color: 'white',
               border: 'none',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
+              padding: '1rem 2rem',
+              borderRadius: '12px',
+              fontSize: '1.1rem',
+              fontWeight: '700',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.75rem',
               transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(255, 127, 0, 0.3)'
+              boxShadow: '0 6px 20px rgba(255, 127, 0, 0.4)'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(255, 127, 0, 0.4)';
+              e.currentTarget.style.transform = 'translateY(-3px)';
+              e.currentTarget.style.boxShadow = '0 10px 30px rgba(255, 127, 0, 0.5)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 127, 0, 0.3)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 127, 0, 0.4)';
             }}
           >
-            <Lock size={18} />
+            <Lock size={20} />
             HR Login
           </button>
         </div>
@@ -1060,41 +1097,43 @@ export default function PreciseAnalyticsATSHomepage() {
         padding: '4rem 2rem'
       }}>
         <div style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '20px',
+          background: 'rgba(255, 255, 255, 0.98)',
+          borderRadius: '24px',
           padding: '4rem',
-          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
+          boxShadow: theme.shadowXl,
           textAlign: 'center',
-          maxWidth: '600px',
+          maxWidth: '700px',
           width: '100%',
           backdropFilter: 'blur(10px)'
         }}>
           <div style={{
-            width: '80px',
-            height: '80px',
-            background: theme.gradient,
-            borderRadius: '20px',
+            width: '100px',
+            height: '100px',
+            background: theme.greenGradient,
+            borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 2rem',
-            boxShadow: '0 8px 25px rgba(154, 205, 50, 0.3)'
+            margin: '0 auto 2.5rem',
+            boxShadow: '0 12px 35px rgba(154, 205, 50, 0.4)'
           }}>
-            <Users size={36} color="white" />
+            <Users size={44} color="white" />
           </div>
 
           <h2 style={{
-            fontSize: '2.5rem',
-            fontWeight: '700',
+            fontSize: '3rem',
+            fontWeight: '800',
             color: theme.textColor,
-            marginBottom: '1rem'
+            marginBottom: '1.5rem',
+            letterSpacing: '-0.02em'
           }}>Welcome to HR Portal</h2>
           
           <p style={{
-            fontSize: '1.2rem',
+            fontSize: '1.3rem',
             color: theme.textLight,
-            marginBottom: '3rem',
-            lineHeight: '1.6'
+            marginBottom: '3.5rem',
+            lineHeight: '1.6',
+            fontWeight: '500'
           }}>
             Manage recruitment, track applications, and streamline your hiring process 
             with Precise Analytics' comprehensive applicant tracking system.
@@ -1102,52 +1141,55 @@ export default function PreciseAnalyticsATSHomepage() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '3rem'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '2rem',
+            marginBottom: '3.5rem'
           }}>
             {quickActions.map((action, index) => (
               <div 
                 key={index}
                 style={{
                   background: 'linear-gradient(135deg, rgba(154, 205, 50, 0.1), rgba(64, 224, 208, 0.1))',
-                  border: '1px solid rgba(154, 205, 50, 0.3)',
-                  borderRadius: '12px',
-                  padding: '1.5rem',
+                  border: '2px solid rgba(154, 205, 50, 0.2)',
+                  borderRadius: '16px',
+                  padding: '2rem',
                   cursor: 'pointer',
                   transition: 'all 0.3s ease'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(154, 205, 50, 0.2)';
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 12px 30px rgba(154, 205, 50, 0.25)';
                   e.currentTarget.style.background = 'linear-gradient(135deg, rgba(154, 205, 50, 0.15), rgba(64, 224, 208, 0.15))';
+                  e.currentTarget.style.borderColor = 'rgba(154, 205, 50, 0.4)';
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                   e.currentTarget.style.background = 'linear-gradient(135deg, rgba(154, 205, 50, 0.1), rgba(64, 224, 208, 0.1))';
+                  e.currentTarget.style.borderColor = 'rgba(154, 205, 50, 0.2)';
                 }}
               >
                 <div style={{
                   color: theme.primaryGreen,
-                  marginBottom: '0.5rem',
+                  marginBottom: '1rem',
                   display: 'flex',
                   justifyContent: 'center'
                 }}>
                   {action.icon}
                 </div>
                 <h4 style={{
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
+                  fontSize: '1rem',
+                  fontWeight: '700',
                   color: theme.textColor,
-                  margin: '0 0 0.3rem 0'
+                  margin: '0 0 0.5rem 0'
                 }}>
                   {action.title}
                 </h4>
                 <p style={{
-                  fontSize: '0.75rem',
+                  fontSize: '0.9rem',
                   color: theme.textLight,
-                  margin: 0
+                  margin: 0,
+                  fontWeight: '500'
                 }}>
                   {action.description}
                 </p>
@@ -1161,21 +1203,21 @@ export default function PreciseAnalyticsATSHomepage() {
               background: theme.orangeGradient,
               color: 'white',
               border: 'none',
-              padding: '1.2rem 3rem',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
+              padding: '1.5rem 3.5rem',
+              borderRadius: '16px',
+              fontSize: '1.2rem',
+              fontWeight: '700',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
-              boxShadow: '0 4px 15px rgba(255, 127, 0, 0.3)'
+              boxShadow: '0 6px 20px rgba(255, 127, 0, 0.4)'
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 127, 0, 0.4)';
+              e.currentTarget.style.boxShadow = '0 10px 30px rgba(255, 127, 0, 0.5)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 127, 0, 0.3)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 127, 0, 0.4)';
             }}
           >
             Access HR Dashboard
@@ -1183,7 +1225,7 @@ export default function PreciseAnalyticsATSHomepage() {
         </div>
       </div>
 
-      {/* LOGIN MODAL WITH FORGOT PASSWORD */}
+      {/* Enhanced Login Modal with Forgot Password */}
       {isLoginOpen && (
         <div style={{
           position: 'fixed',
@@ -1191,20 +1233,20 @@ export default function PreciseAnalyticsATSHomepage() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'rgba(0, 0, 0, 0.8)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 2000,
-          backdropFilter: 'blur(5px)'
+          backdropFilter: 'blur(8px)'
         }}>
           <div style={{
             background: 'white',
-            padding: '3rem',
-            borderRadius: '20px',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.4)',
+            padding: '3.5rem',
+            borderRadius: '24px',
+            boxShadow: theme.shadowXl,
             width: '90%',
-            maxWidth: '450px',
+            maxWidth: '500px',
             position: 'relative'
           }}>
             <button
@@ -1217,80 +1259,101 @@ export default function PreciseAnalyticsATSHomepage() {
               }}
               style={{
                 position: 'absolute',
-                top: '1rem',
-                right: '1rem',
+                top: '1.5rem',
+                right: '1.5rem',
                 background: 'none',
                 border: 'none',
-                fontSize: '1.5rem',
+                fontSize: '2rem',
                 cursor: 'pointer',
-                color: '#64748b'
+                color: '#64748b',
+                fontWeight: '300'
               }}
             >
               ×
             </button>
             
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
               <div style={{
-                width: '80px',
-                height: '80px',
-                background: theme.gradient,
-                borderRadius: '20px',
+                width: '90px',
+                height: '90px',
+                background: theme.greenGradient,
+                borderRadius: '24px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 1.5rem',
-                boxShadow: '0 8px 25px rgba(154, 205, 50, 0.3)'
+                margin: '0 auto 2rem',
+                boxShadow: '0 12px 35px rgba(154, 205, 50, 0.4)'
               }}>
-                <Lock size={32} color="white" />
+                <Lock size={40} color="white" />
               </div>
               <h2 style={{
-                fontSize: '2rem',
-                fontWeight: '700',
+                fontSize: '2.5rem',
+                fontWeight: '800',
                 color: theme.textColor,
-                margin: '0 0 0.5rem 0'
+                margin: '0 0 0.75rem 0'
               }}>
                 {showForgotPassword ? 'Reset Password' : 'HR Portal Login'}
               </h2>
               <p style={{
                 color: theme.textLight,
                 margin: 0,
-                fontSize: '1rem'
+                fontSize: '1.1rem',
+                fontWeight: '500'
               }}>
-                {showForgotPassword 
-                  ? 'Enter your email to receive reset instructions' 
-                  : 'Welcome back! Please sign in to continue.'
+                {showForgotPassword ? 
+                  'Enter your email to receive reset instructions' : 
+                  'Welcome back! Please sign in to continue.'
                 }
               </p>
             </div>
 
-            {!showForgotPassword ? (
-              // Regular Login Form
-              <div>
-                {loginError && (
-                  <div style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#ef4444',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    marginBottom: '1rem',
-                    fontSize: '0.9rem'
-                  }}>
-                    {loginError}
-                  </div>
-                )}
+            <div>
+              {loginError && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '2px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  marginBottom: '1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  textAlign: 'center'
+                }}>
+                  {loginError}
+                </div>
+              )}
 
-                <form onSubmit={handleLogin}>
+              {forgotPasswordStatus && (
+                <div style={{
+                  background: forgotPasswordStatus.includes('✅') ? 
+                    'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `2px solid ${forgotPasswordStatus.includes('✅') ? 
+                    'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  color: forgotPasswordStatus.includes('✅') ? '#22c55e' : '#ef4444',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  marginBottom: '1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  textAlign: 'center'
+                }}>
+                  {forgotPasswordStatus}
+                </div>
+              )}
+
+              {!showForgotPassword ? (
+                <>
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    marginBottom: '1.5rem'
+                    marginBottom: '2rem'
                   }}>
                     <label style={{
-                      fontSize: '1rem',
-                      fontWeight: '600',
+                      fontSize: '1.1rem',
+                      fontWeight: '700',
                       color: theme.textColor,
-                      marginBottom: '0.5rem'
+                      marginBottom: '0.75rem'
                     }}>Email Address</label>
                     <input
                       type="email"
@@ -1298,12 +1361,11 @@ export default function PreciseAnalyticsATSHomepage() {
                       value={loginData.email}
                       onChange={(e) => setLoginData({...loginData, email: e.target.value})}
                       disabled={isLoading}
-                      required
                       style={{
-                        padding: '1rem',
-                        fontSize: '1rem',
+                        padding: '1.25rem',
+                        fontSize: '1.1rem',
                         border: `2px solid rgba(154, 205, 50, 0.3)`,
-                        borderRadius: '8px',
+                        borderRadius: '12px',
                         background: 'rgba(248, 250, 252, 0.9)',
                         color: theme.textColor,
                         transition: 'border-color 0.3s ease',
@@ -1317,13 +1379,13 @@ export default function PreciseAnalyticsATSHomepage() {
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    marginBottom: '1rem'
+                    marginBottom: '2rem'
                   }}>
                     <label style={{
-                      fontSize: '1rem',
-                      fontWeight: '600',
+                      fontSize: '1.1rem',
+                      fontWeight: '700',
                       color: theme.textColor,
-                      marginBottom: '0.5rem'
+                      marginBottom: '0.75rem'
                     }}>Password</label>
                     <input
                       type="password"
@@ -1331,12 +1393,11 @@ export default function PreciseAnalyticsATSHomepage() {
                       value={loginData.password}
                       onChange={(e) => setLoginData({...loginData, password: e.target.value})}
                       disabled={isLoading}
-                      required
                       style={{
-                        padding: '1rem',
-                        fontSize: '1rem',
+                        padding: '1.25rem',
+                        fontSize: '1.1rem',
                         border: `2px solid rgba(154, 205, 50, 0.3)`,
-                        borderRadius: '8px',
+                        borderRadius: '12px',
                         background: 'rgba(248, 250, 252, 0.9)',
                         color: theme.textColor,
                         transition: 'border-color 0.3s ease',
@@ -1347,203 +1408,170 @@ export default function PreciseAnalyticsATSHomepage() {
                     />
                   </div>
 
-                  {/* Forgot Password Link */}
-                  <div style={{
-                    textAlign: 'right',
-                    marginBottom: '1.5rem'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: theme.primaryGreen,
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        transition: 'color 0.2s ease'
-                      }}
-                      onMouseOver={(e) => (e.currentTarget as HTMLButtonElement).style.color = theme.tealAccent}
-                      onMouseOut={(e) => (e.currentTarget as HTMLButtonElement).style.color = theme.primaryGreen}
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-
                   <button
-                    type="submit"
+                    onClick={handleLogin}
                     disabled={isLoading}
                     style={{
                       width: '100%',
-                      background: theme.gradient,
+                      background: theme.greenGradient,
                       color: 'white',
                       border: 'none',
-                      padding: '1.2rem',
-                      borderRadius: '10px',
-                      fontSize: '1.1rem',
-                      fontWeight: '600',
+                      padding: '1.5rem',
+                      borderRadius: '14px',
+                      fontSize: '1.2rem',
+                      fontWeight: '700',
                       cursor: isLoading ? 'not-allowed' : 'pointer',
                       transition: 'all 0.3s ease',
-                      boxShadow: '0 4px 15px rgba(154, 205, 50, 0.3)',
-                      opacity: isLoading ? 0.7 : 1
+                      boxShadow: '0 6px 20px rgba(154, 205, 50, 0.4)',
+                      opacity: isLoading ? 0.7 : 1,
+                      marginBottom: '1.5rem'
                     }}
                     onMouseOver={(e) => {
                       if (!isLoading) {
                         e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(154, 205, 50, 0.4)';
+                        e.currentTarget.style.boxShadow = '0 10px 30px rgba(154, 205, 50, 0.5)';
                       }
                     }}
                     onMouseOut={(e) => {
                       if (!isLoading) {
                         e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(154, 205, 50, 0.3)';
+                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(154, 205, 50, 0.4)';
                       }
                     }}
                   >
                     {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
                   </button>
-                </form>
-              </div>
-            ) : (
-              // Forgot Password Form
-              <div>
-                {forgotPasswordStatus && (
-                  <div style={{
-                    background: forgotPasswordStatus.includes('✅') 
-                      ? 'rgba(5, 150, 105, 0.1)' 
-                      : 'rgba(239, 68, 68, 0.1)',
-                    border: forgotPasswordStatus.includes('✅')
-                      ? '1px solid rgba(5, 150, 105, 0.3)'
-                      : '1px solid rgba(239, 68, 68, 0.3)',
-                    color: forgotPasswordStatus.includes('✅') ? '#059669' : '#ef4444',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    marginBottom: '1rem',
-                    fontSize: '0.9rem'
+
+                  <div style={{ 
+                    textAlign: 'center',
+                    borderTop: '2px solid rgba(154, 205, 50, 0.2)',
+                    paddingTop: '1.5rem'
                   }}>
-                    {forgotPasswordStatus}
-                  </div>
-                )}
-
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  marginBottom: '1.5rem'
-                }}>
-                  <label style={{
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: theme.textColor,
-                    marginBottom: '0.5rem'
-                  }}>Email Address</label>
-                  <input
-                    type="email"
-                    placeholder="careers@preciseanalytics.io"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    disabled={isLoading}
-                    style={{
-                      padding: '1rem',
-                      fontSize: '1rem',
-                      border: `2px solid rgba(154, 205, 50, 0.3)`,
-                      borderRadius: '8px',
-                      background: 'rgba(248, 250, 252, 0.9)',
-                      color: theme.textColor,
-                      transition: 'border-color 0.3s ease',
-                      outline: 'none'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                    onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
-                  />
-                </div>
-
-                <p style={{
-                  fontSize: '0.9rem',
-                  color: theme.textLight,
-                  marginBottom: '2rem',
-                  lineHeight: '1.5'
-                }}>
-                  Enter your email address and we'll send you instructions to reset your password.
-                </p>
-
-                <div style={{
-                  display: 'flex',
-                  gap: '1rem'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPassword(false);
-                      setForgotPasswordEmail('');
-                      setForgotPasswordStatus('');
-                    }}
-                    style={{
-                      flex: 1,
-                      background: 'rgba(107, 114, 128, 0.1)',
-                      color: theme.textColor,
-                      border: '2px solid rgba(107, 114, 128, 0.3)',
-                      padding: '1rem',
-                      borderRadius: '10px',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = 'rgba(107, 114, 128, 0.15)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = 'rgba(107, 114, 128, 0.1)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    Back to Login
-                  </button>
-                  
-                  <button
-                    onClick={handleForgotPassword}
-                    disabled={isLoading || !forgotPasswordEmail}
-                    style={{
-                      flex: 1,
-                      background: theme.gradient,
-                      color: 'white',
-                      border: 'none',
-                      padding: '1rem',
-                      borderRadius: '10px',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      cursor: (isLoading || !forgotPasswordEmail) ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.3s ease',
-                      boxShadow: '0 4px 15px rgba(154, 205, 50, 0.3)',
-                      opacity: (isLoading || !forgotPasswordEmail) ? 0.5 : 1
-                    }}
-                    onMouseOver={(e) => {
-                      if (!isLoading && forgotPasswordEmail) {
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(154, 205, 50, 0.4)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (!isLoading && forgotPasswordEmail) {
+                    <button
+                      onClick={() => setShowForgotPassword(true)}
+                      style={{
+                        background: 'rgba(249, 115, 22, 0.1)',
+                        border: '2px solid rgba(249, 115, 22, 0.3)',
+                        color: theme.primaryOrange,
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        padding: '1rem 2rem',
+                        borderRadius: '12px',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.15)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.1)';
                         e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(154, 205, 50, 0.3)';
-                      }
-                    }}
-                  >
-                    {isLoading ? 'Sending...' : 'Send Reset Link'}
-                  </button>
-                </div>
-              </div>
-            )}
+                      }}
+                    >
+                      🔑 Forgot your password?
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginBottom: '2rem'
+                  }}>
+                    <label style={{
+                      fontSize: '1.1rem',
+                      fontWeight: '700',
+                      color: theme.textColor,
+                      marginBottom: '0.75rem'
+                    }}>Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="careers@preciseanalytics.io"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      disabled={isLoading}
+                      style={{
+                        padding: '1.25rem',
+                        fontSize: '1.1rem',
+                        border: `2px solid rgba(154, 205, 50, 0.3)`,
+                        borderRadius: '12px',
+                        background: 'rgba(248, 250, 252, 0.9)',
+                        color: theme.textColor,
+                        transition: 'border-color 0.3s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <button
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setForgotPasswordEmail('');
+                        setForgotPasswordStatus('');
+                      }}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(156, 163, 175, 0.2)',
+                        color: theme.textLight,
+                        border: '2px solid rgba(156, 163, 175, 0.3)',
+                        padding: '1.25rem',
+                        borderRadius: '12px',
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      Back to Login
+                    </button>
+                    
+                    <button
+                      onClick={handleForgotPassword}
+                      disabled={isLoading}
+                      style={{
+                        flex: 1,
+                        background: theme.orangeGradient,
+                        color: 'white',
+                        border: 'none',
+                        padding: '1.25rem',
+                        borderRadius: '12px',
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
+                        opacity: isLoading ? 0.7 : 1
+                      }}
+                      onMouseOver={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 8px 25px rgba(249, 115, 22, 0.4)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 15px rgba(249, 115, 22, 0.3)';
+                        }
+                      }}
+                    >
+                      {isLoading ? 'Sending...' : 'Send Reset Link'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
 
             <div style={{
               textAlign: 'center',
-              marginTop: '1.5rem',
-              fontSize: '0.85rem',
-              color: theme.textLight
+              fontSize: '0.95rem',
+              color: theme.textLight,
+              fontWeight: '500'
             }}>
               Authorized HR personnel only
             </div>
