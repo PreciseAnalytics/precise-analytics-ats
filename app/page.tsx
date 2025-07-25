@@ -42,7 +42,7 @@ export default function PreciseAnalyticsATSHomepage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // Added filter state
-    // Add these state variables with your existing ones (around line 37-43)
+  // Add these state variables with your existing ones (around line 37-43)
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState('');
@@ -125,41 +125,41 @@ export default function PreciseAnalyticsATSHomepage() {
   };
 
   // Add this after handleLogin function
-const handleForgotPassword = async () => {
-  if (!forgotPasswordEmail) {
-    setForgotPasswordStatus('Please enter your email address');
-    return;
-  }
-
-  setIsLoading(true);
-  setForgotPasswordStatus('');
-
-  try {
-    const response = await fetch('/api/auth/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: forgotPasswordEmail }),
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      setForgotPasswordStatus('✅ Password reset instructions sent to your email');
-      setTimeout(() => {
-        setShowForgotPassword(false);
-        setForgotPasswordEmail('');
-        setForgotPasswordStatus('');
-      }, 3000);
-    } else {
-      setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      setForgotPasswordStatus('Please enter your email address');
+      return;
     }
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    setForgotPasswordStatus('Network error. Please contact your administrator.');
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+    setIsLoading(true);
+    setForgotPasswordStatus('');
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotPasswordEmail }),
+      });
+
+      const result = await response.json();
+
+      if (result.success || result.message) {
+        setForgotPasswordStatus('✅ Password reset instructions sent to your email');
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setForgotPasswordEmail('');
+          setForgotPasswordStatus('');
+        }, 3000);
+      } else {
+        setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      setForgotPasswordStatus('Network error. Please contact your administrator.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchApplications = async () => {
     try {
@@ -200,7 +200,7 @@ const handleForgotPassword = async () => {
     });
   };
 
-    const getStageColors = (stage: string): StageColors => {
+  const getStageColors = (stage: string): StageColors => {
     const colors: Record<string, StageColors> = {
       'applied': { bg: 'rgba(59, 130, 246, 0.08)', text: '#1D4ED8', border: 'rgba(59, 130, 246, 0.2)' },
       'submitted': { bg: 'rgba(59, 130, 246, 0.08)', text: '#1D4ED8', border: 'rgba(59, 130, 246, 0.2)' },
@@ -266,7 +266,7 @@ const handleForgotPassword = async () => {
     ).length;
 
     // Handle filter clicks
-    const handleFilterClick = (filterType) => {
+    const handleFilterClick = (filterType: string) => {
       setActiveFilter(activeFilter === filterType ? 'all' : filterType);
     };
 
@@ -1183,6 +1183,7 @@ const handleForgotPassword = async () => {
         </div>
       </div>
 
+      {/* LOGIN MODAL WITH FORGOT PASSWORD */}
       {isLoginOpen && (
         <div style={{
           position: 'fixed',
@@ -1207,7 +1208,13 @@ const handleForgotPassword = async () => {
             position: 'relative'
           }}>
             <button
-              onClick={() => setIsLoginOpen(false)}
+              onClick={() => {
+                setIsLoginOpen(false);
+                setShowForgotPassword(false);
+                setForgotPasswordEmail('');
+                setForgotPasswordStatus('');
+                setLoginError('');
+              }}
               style={{
                 position: 'absolute',
                 top: '1rem',
@@ -1242,131 +1249,295 @@ const handleForgotPassword = async () => {
                 color: theme.textColor,
                 margin: '0 0 0.5rem 0'
               }}>
-                HR Portal Login
+                {showForgotPassword ? 'Reset Password' : 'HR Portal Login'}
               </h2>
               <p style={{
                 color: theme.textLight,
                 margin: 0,
                 fontSize: '1rem'
               }}>
-                Welcome back! Please sign in to continue.
+                {showForgotPassword 
+                  ? 'Enter your email to receive reset instructions' 
+                  : 'Welcome back! Please sign in to continue.'
+                }
               </p>
             </div>
 
-            <div>
-              {loginError && (
+            {!showForgotPassword ? (
+              // Regular Login Form
+              <div>
+                {loginError && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#ef4444',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    fontSize: '0.9rem'
+                  }}>
+                    {loginError}
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <label style={{
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      color: theme.textColor,
+                      marginBottom: '0.5rem'
+                    }}>Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="careers@preciseanalytics.io"
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+                      disabled={isLoading}
+                      required
+                      style={{
+                        padding: '1rem',
+                        fontSize: '1rem',
+                        border: `2px solid rgba(154, 205, 50, 0.3)`,
+                        borderRadius: '8px',
+                        background: 'rgba(248, 250, 252, 0.9)',
+                        color: theme.textColor,
+                        transition: 'border-color 0.3s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
+                    />
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginBottom: '1rem'
+                  }}>
+                    <label style={{
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      color: theme.textColor,
+                      marginBottom: '0.5rem'
+                    }}>Password</label>
+                    <input
+                      type="password"
+                      placeholder="Enter your password"
+                      value={loginData.password}
+                      onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                      disabled={isLoading}
+                      required
+                      style={{
+                        padding: '1rem',
+                        fontSize: '1rem',
+                        border: `2px solid rgba(154, 205, 50, 0.3)`,
+                        borderRadius: '8px',
+                        background: 'rgba(248, 250, 252, 0.9)',
+                        color: theme.textColor,
+                        transition: 'border-color 0.3s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
+                    />
+                  </div>
+
+                  {/* Forgot Password Link */}
+                  <div style={{
+                    textAlign: 'right',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: theme.primaryGreen,
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        transition: 'color 0.2s ease'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget as HTMLButtonElement).style.color = theme.tealAccent}
+                      onMouseOut={(e) => (e.currentTarget as HTMLButtonElement).style.color = theme.primaryGreen}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    style={{
+                      width: '100%',
+                      background: theme.gradient,
+                      color: 'white',
+                      border: 'none',
+                      padding: '1.2rem',
+                      borderRadius: '10px',
+                      fontSize: '1.1rem',
+                      fontWeight: '600',
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 15px rgba(154, 205, 50, 0.3)',
+                      opacity: isLoading ? 0.7 : 1
+                    }}
+                    onMouseOver={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(154, 205, 50, 0.4)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(154, 205, 50, 0.3)';
+                      }
+                    }}
+                  >
+                    {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              // Forgot Password Form
+              <div>
+                {forgotPasswordStatus && (
+                  <div style={{
+                    background: forgotPasswordStatus.includes('✅') 
+                      ? 'rgba(5, 150, 105, 0.1)' 
+                      : 'rgba(239, 68, 68, 0.1)',
+                    border: forgotPasswordStatus.includes('✅')
+                      ? '1px solid rgba(5, 150, 105, 0.3)'
+                      : '1px solid rgba(239, 68, 68, 0.3)',
+                    color: forgotPasswordStatus.includes('✅') ? '#059669' : '#ef4444',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    fontSize: '0.9rem'
+                  }}>
+                    {forgotPasswordStatus}
+                  </div>
+                )}
+
                 <div style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#ef4444',
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  marginBottom: '1rem',
-                  fontSize: '0.9rem'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  marginBottom: '1.5rem'
                 }}>
-                  {loginError}
+                  <label style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: theme.textColor,
+                    marginBottom: '0.5rem'
+                  }}>Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="careers@preciseanalytics.io"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    disabled={isLoading}
+                    style={{
+                      padding: '1rem',
+                      fontSize: '1rem',
+                      border: `2px solid rgba(154, 205, 50, 0.3)`,
+                      borderRadius: '8px',
+                      background: 'rgba(248, 250, 252, 0.9)',
+                      color: theme.textColor,
+                      transition: 'border-color 0.3s ease',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
+                  />
                 </div>
-              )}
 
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                marginBottom: '1.5rem'
-              }}>
-                <label style={{
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  color: theme.textColor,
-                  marginBottom: '0.5rem'
-                }}>Email Address</label>
-                <input
-                  type="email"
-                  placeholder="careers@preciseanalytics.io"
-                  value={loginData.email}
-                  onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                  disabled={isLoading}
-                  style={{
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    border: `2px solid rgba(154, 205, 50, 0.3)`,
-                    borderRadius: '8px',
-                    background: 'rgba(248, 250, 252, 0.9)',
-                    color: theme.textColor,
-                    transition: 'border-color 0.3s ease',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                  onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'
-                }
-                />
+                <p style={{
+                  fontSize: '0.9rem',
+                  color: theme.textLight,
+                  marginBottom: '2rem',
+                  lineHeight: '1.5'
+                }}>
+                  Enter your email address and we'll send you instructions to reset your password.
+                </p>
+
+                <div style={{
+                  display: 'flex',
+                  gap: '1rem'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setForgotPasswordEmail('');
+                      setForgotPasswordStatus('');
+                    }}
+                    style={{
+                      flex: 1,
+                      background: 'rgba(107, 114, 128, 0.1)',
+                      color: theme.textColor,
+                      border: '2px solid rgba(107, 114, 128, 0.3)',
+                      padding: '1rem',
+                      borderRadius: '10px',
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = 'rgba(107, 114, 128, 0.15)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = 'rgba(107, 114, 128, 0.1)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    Back to Login
+                  </button>
+                  
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={isLoading || !forgotPasswordEmail}
+                    style={{
+                      flex: 1,
+                      background: theme.gradient,
+                      color: 'white',
+                      border: 'none',
+                      padding: '1rem',
+                      borderRadius: '10px',
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      cursor: (isLoading || !forgotPasswordEmail) ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 15px rgba(154, 205, 50, 0.3)',
+                      opacity: (isLoading || !forgotPasswordEmail) ? 0.5 : 1
+                    }}
+                    onMouseOver={(e) => {
+                      if (!isLoading && forgotPasswordEmail) {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(154, 205, 50, 0.4)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isLoading && forgotPasswordEmail) {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 15px rgba(154, 205, 50, 0.3)';
+                      }
+                    }}
+                  >
+                    {isLoading ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
               </div>
-
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                marginBottom: '1.5rem'
-              }}>
-                <label style={{
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  color: theme.textColor,
-                  marginBottom: '0.5rem'
-                }}>Password</label>
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  value={loginData.password}
-                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                  disabled={isLoading}
-                  style={{
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    border: `2px solid rgba(154, 205, 50, 0.3)`,
-                    borderRadius: '8px',
-                    background: 'rgba(248, 250, 252, 0.9)',
-                    color: theme.textColor,
-                    transition: 'border-color 0.3s ease',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                  onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'
-                }
-                />
-              </div>
-
-              <button
-                onClick={handleLogin}
-                disabled={isLoading}
-                style={{
-                  width: '100%',
-                  background: theme.gradient,
-                  color: 'white',
-                  border: 'none',
-                  padding: '1.2rem',
-                  borderRadius: '10px',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 15px rgba(154, 205, 50, 0.3)',
-                  opacity: isLoading ? 0.7 : 1
-                }}
-                onMouseOver={(e) => {
-                  if (!isLoading) {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(154, 205, 50, 0.4)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!isLoading) {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(154, 205, 50, 0.3)';
-                  }
-                }}
-              >
-                {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
-              </button>
-            </div>
+            )}
 
             <div style={{
               textAlign: 'center',
