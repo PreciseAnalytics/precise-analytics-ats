@@ -645,16 +645,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Link to Main Website */}
+                {/* Link to ATS Home */}
         <div style={{
           position: 'absolute',
           top: '1.5rem',
           right: '1.5rem'
         }}>
-          <a 
-            href="https://preciseanalytics.io"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button 
+            onClick={() => router.push('/')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -664,9 +662,9 @@ export default function LoginPage() {
               background: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
               color: 'white',
-              textDecoration: 'none',
               fontSize: '0.9rem',
               fontWeight: '500',
+              cursor: 'pointer',
               transition: 'all 0.3s ease',
               backdropFilter: 'blur(10px)'
             }}
@@ -679,9 +677,9 @@ export default function LoginPage() {
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            <span>🌐</span>
-            Main Website
-          </a>
+            <span>🏠</span>
+            ATS Home
+          </button>
         </div>
 
         {/* Default credentials info */}
