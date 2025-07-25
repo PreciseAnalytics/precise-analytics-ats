@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
+    "@neondatabase/serverless": "^1.0.1",
     "@tailwindcss/forms": "^0.5.10",
     "@types/cookie": "^0.6.0",
     "@types/formidable": "^3.4.5",
