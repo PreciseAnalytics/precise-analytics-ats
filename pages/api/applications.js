@@ -64,8 +64,11 @@ export default async function handler(req, res) {
           resume_url, 
           cover_letter 
         } = req.body;
-        
-        // Insert new application
+
+        // Get job title for position_applied field
+        const jobDetails = await sql`SELECT title FROM jobs WHERE id = ${job_id}`;
+        const position_applied = jobDetails[0]?.title || 'Unknown Position';
+
         const newApplication = await sql`
           INSERT INTO applications (
             job_id, 
@@ -75,6 +78,7 @@ export default async function handler(req, res) {
             phone, 
             resume_url, 
             cover_letter,
+            position_applied,
             status
           )
           VALUES (
@@ -85,6 +89,7 @@ export default async function handler(req, res) {
             ${phone}, 
             ${resume_url}, 
             ${cover_letter},
+            ${position_applied},
             'applied'
           )
           RETURNING *
