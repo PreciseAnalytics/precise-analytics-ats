@@ -159,12 +159,12 @@ export default function DashboardPage() {
   const fetchApplications = async () => {
     try {
       const response = await fetch('/api/applications');
-      const result = await response.json();
+      const applications = await response.json();
       
-      if (result.success) {
-        setApplications(result.applications);
+      if (Array.isArray(applications)) {
+        setApplications(applications);
       } else {
-        console.error('Failed to fetch applications:', result.error);
+        console.error('Failed to fetch applications: Invalid response format');
       }
     } catch (error) {
       console.error('Error fetching applications:', error);
