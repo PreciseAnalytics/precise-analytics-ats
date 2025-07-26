@@ -2,12 +2,155 @@
 
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
-import { motion } from 'framer-motion';
-import AnimatedHeader from '../../components/AnimatedHeader';
+import { motion, AnimatePresence } from 'framer-motion';
 import Container from '../../components/Container';
 import { EnvVars } from '../../lib/env';
 import { mq } from '../../utils/media';
+
+// In your component:
+<header style={{ padding: '2rem', textAlign: 'center' }}>
+  <h1>Precise Analytics ATS</h1>
+</header>
+
+// ===========================================
+// UNIFIED HEADER COMPONENT
+// ===========================================
+
+interface HeaderProps {
+  isATS?: boolean;
+}
+
+const UnifiedHeader: React.FC<HeaderProps> = ({ isATS = false }) => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const mainNavItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Services', href: '/services' },
+    { label: 'About', href: '/about-us' },
+    { label: 'Careers', href: '/careers' },
+    { label: 'Contact', href: '/contact' }
+  ];
+
+  const atsNavItems = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Careers', href: '/careers' },
+  { label: 'Applications', href: '/applications' }
+  // Removing external link for now to fix build
+];
+
+  const navItems = isATS ? atsNavItems : mainNavItems;
+  const logoHref = isATS ? '/dashboard' : '/';
+
+  const isActivePage = (href: string) => {
+    if (typeof window === 'undefined') return false;
+    const pathname = window.location.pathname;
+    if (href === '/' && pathname === '/') return true;
+    if (href !== '/' && pathname.startsWith(href)) return true;
+    return false;
+  };
+
+  return (
+    <HeaderWrapper isScrolled={isScrolled}>
+      <HeaderContainer>
+        <LogoSection>
+          <Link href={logoHref} passHref>
+            <LogoLink>
+              <LogoText>
+                Precise Analytics
+                {isATS && <ATSBadge>ATS</ATSBadge>}
+              </LogoText>
+              <LogoSubtext>Your Data, Our Insights</LogoSubtext>
+            </LogoLink>
+          </Link>
+        </LogoSection>
+
+        <DesktopNav>
+          {navItems.map((item) => (
+            <NavItem key={item.href}>
+              <Link href={item.href} passHref>
+                <NavLink isActive={isActivePage(item.href)}>
+                  {item.label}
+                </NavLink>
+              </Link>
+            </NavItem>
+          ))}
+        </DesktopNav>
+
+        <CTASection>
+          {isATS ? (
+            <CTAButton onClick={() => router.push('/careers')}>
+              Post New Job
+            </CTAButton>
+          ) : (
+            <CTAButton onClick={() => router.push('/contact')}>
+              Get Started
+            </CTAButton>
+          )}
+        </CTASection>
+
+        <MobileMenuButton onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          <MenuIcon isOpen={isMobileMenuOpen}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </MenuIcon>
+        </MobileMenuButton>
+      </HeaderContainer>
+
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <MobileMenu
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <MobileNavList>
+              {navItems.map((item) => (
+                <MobileNavItem key={item.href}>
+                  <Link href={item.href} passHref>
+                    <MobileNavLink 
+                      isActive={isActivePage(item.href)}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {item.label}
+                    </MobileNavLink>
+                  </Link>
+                </MobileNavItem>
+              ))}
+              <MobileNavItem>
+                <MobileCTAButton onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  router.push(isATS ? '/careers' : '/contact');
+                }}>
+                  {isATS ? 'Post New Job' : 'Get Started'}
+                </MobileCTAButton>
+              </MobileNavItem>
+            </MobileNavList>
+          </MobileMenu>
+        )}
+      </AnimatePresence>
+    </HeaderWrapper>
+  );
+};
+
+// ===========================================
+// MAIN CAREERS PAGE COMPONENT
+// ===========================================
 
 interface Position {
   id: number;
@@ -15,12 +158,17 @@ interface Position {
   department: string;
   location: string;
   employment_type: string;
+  experience_level?: string;
+  salary_range?: string;
+  security_clearance?: string;
   description: string;
   requirements: string[];
   salary_min?: number;
   salary_max?: number;
   benefits?: string;
-  application_count?: number;
+  applications_count?: number;
+  posted_date?: string;
+  status?: string;
 }
 
 interface FormData {
@@ -35,11 +183,15 @@ interface FormData {
   coverLetterFile: File | null;
   linkedinUrl: string;
   portfolioUrl: string;
+  securityClearance?: string;
+  veteranStatus?: boolean;
 }
 
 interface FormErrors {
   [key: string]: string;
 }
+
+const ATS_API_BASE = 'https://precise-analytics-ats.vercel.app/api';
 
 export default function CareersPage() {
   const [isClient, setIsClient] = useState(false);
@@ -63,7 +215,9 @@ export default function CareersPage() {
     resume: null,
     coverLetterFile: null,
     linkedinUrl: '',
-    portfolioUrl: ''
+    portfolioUrl: '',
+    securityClearance: 'None',
+    veteranStatus: false
   });
 
   useEffect(() => {
@@ -71,35 +225,146 @@ export default function CareersPage() {
     fetchPositions();
   }, []);
 
-  // Fetch positions from API
+  const debugAPICalls = async () => {
+    console.log('🔍 DEBUGGING API SYNCHRONIZATION');
+    
+    try {
+      console.log('Testing ATS API...');
+      const atsResponse = await fetch(`${ATS_API_BASE}/jobs?status=active`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('ATS API Status:', atsResponse.status);
+      
+      if (atsResponse.ok) {
+        const atsData = await atsResponse.json();
+        console.log('✅ ATS API Response:', atsData);
+        console.log('📊 ATS Job Count:', Array.isArray(atsData) ? atsData.length : atsData.jobs?.length);
+      } else {
+        console.error('❌ ATS API Failed:', atsResponse.statusText);
+      }
+    } catch (atsError) {
+      console.error('❌ ATS API Error:', atsError);
+    }
+    
+    try {
+      console.log('Testing Local API...');
+      const localResponse = await fetch('/api/positions?status=active');
+      console.log('Local API Status:', localResponse.status);
+      
+      if (localResponse.ok) {
+        const localData = await localResponse.json();
+        console.log('✅ Local API Response:', localData);
+        console.log('📊 Local Job Count:', localData.positions?.length);
+      } else {
+        console.error('❌ Local API Failed:', localResponse.statusText);
+      }
+    } catch (localError) {
+      console.error('❌ Local API Error:', localError);
+    }
+  };
+
   const fetchPositions = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching positions from API...');
+      console.log('🔄 Fetching positions from ATS API...');
       
-      const response = await fetch('/api/positions?status=active&include_count=true');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(`${ATS_API_BASE}/jobs?status=active`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`ATS API HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('📋 ATS API Success - Raw Response:', data);
       
-      console.log('📋 API Response:', data);
-      
-      if (data.success) {
-        // Transform requirements from text to array if needed
-        const processedPositions = data.positions.map((pos: any) => ({
-          ...pos,
-          requirements: typeof pos.requirements === 'string' 
-            ? pos.requirements.split('\n').filter((req: string) => req.trim()) 
-            : pos.requirements || []
-        }));
-        
-        console.log('✅ Processed positions:', processedPositions.length);
-        setPositions(processedPositions);
+      let jobsArray: any[] = [];
+      if (Array.isArray(data)) {
+        jobsArray = data;
+      } else if (data.jobs && Array.isArray(data.jobs)) {
+        jobsArray = data.jobs;
+      } else if (data.positions && Array.isArray(data.positions)) {
+        jobsArray = data.positions;
       } else {
-        console.error('❌ Failed to fetch positions:', data.error);
+        console.warn('⚠️ Unexpected ATS API response format:', data);
+        throw new Error('Invalid API response format');
+      }
+      
+      console.log(`✅ Found ${jobsArray.length} jobs in ATS`);
+      
+      const processedPositions = jobsArray
+        .filter(job => job.status === 'active')
+        .map((pos: any) => ({
+          id: pos.id,
+          title: pos.title || 'Untitled Position',
+          department: pos.department || 'General',
+          location: pos.location || 'Richmond, VA',
+          employment_type: pos.employment_type || 'Full-time',
+          experience_level: pos.experience_level,
+          salary_range: pos.salary_range,
+          security_clearance: pos.security_clearance || 'None',
+          description: pos.description || 'No description available',
+          requirements: typeof pos.requirements === 'string' 
+            ? pos.requirements.split('\n').filter((req: string) => req.trim().length > 0)
+            : pos.requirements || [],
+          applications_count: pos.applications_count || 0,
+          posted_date: pos.posted_date,
+          status: pos.status || 'active',
+          salary_min: pos.salary_min,
+          salary_max: pos.salary_max,
+          benefits: pos.benefits
+        }));
+      
+      console.log(`✅ Processed ${processedPositions.length} active positions from ATS`);
+      setPositions(processedPositions);
+      
+    } catch (error) {
+      console.error('❌ ATS API failed, trying fallback:', error);
+      
+      try {
+        console.log('🔄 Using fallback local API...');
+        const fallbackResponse = await fetch('/api/positions?status=active&include_count=true');
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Local API HTTP ${fallbackResponse.status}`);
+        }
+        
+        const fallbackData = await fallbackResponse.json();
+        console.log('📋 Fallback API Response:', fallbackData);
+        
+        if (fallbackData.success && fallbackData.positions) {
+          const processedFallback = fallbackData.positions.map((pos: any) => ({
+            ...pos,
+            requirements: typeof pos.requirements === 'string' 
+              ? pos.requirements.split('\n').filter((req: string) => req.trim()) 
+              : pos.requirements || []
+          }));
+          
+          console.log(`⚠️ Using fallback: ${processedFallback.length} jobs from local API`);
+          setPositions(processedFallback);
+        } else {
+          console.error('❌ Fallback API returned invalid data');
+          setPositions([]);
+        }
+      } catch (fallbackError) {
+        console.error('❌ Both ATS and fallback APIs failed:', fallbackError);
         setPositions([]);
       }
-    } catch (error) {
-      console.error('❌ Error fetching positions:', error);
-      setPositions([]);
     } finally {
       setLoading(false);
     }
@@ -184,10 +449,18 @@ export default function CareersPage() {
     uploadFormData.append('file', file);
     uploadFormData.append('type', type);
 
-    const response = await fetch('/api/upload', {
+    let response = await fetch('/api/upload', {
       method: 'POST',
       body: uploadFormData,
     });
+
+    if (!response.ok) {
+      console.log('Local upload failed, trying ATS upload...');
+      response = await fetch(`${ATS_API_BASE}/upload`, {
+        method: 'POST',
+        body: uploadFormData,
+      });
+    }
 
     if (!response.ok) {
       throw new Error(`File upload failed: ${response.statusText}`);
@@ -195,18 +468,20 @@ export default function CareersPage() {
 
     const result = await response.json();
     
-    if (!result.success) {
+    if (!result.success && !result.url) {
       throw new Error(result.error || 'File upload failed');
     }
     
-    return result.url;
+    return result.url || result.fileUrl;
   };
 
   const handleChange = (e: any) => {
-    const { name, value, files } = e.target;
+    const { name, value, files, type, checked } = e.target;
     
     if (files) {
       setFormData({ ...formData, [name]: files[0] });
+    } else if (type === 'checkbox') {
+      setFormData({ ...formData, [name]: checked });
     } else {
       let processedValue = value;
       
@@ -243,9 +518,8 @@ export default function CareersPage() {
     setSubmitError(null);
 
     try {
-      console.log('🚀 Starting application submission...');
+      console.log('🚀 Starting application submission to ATS...');
       
-      // Upload files first
       let resumeUrl = '';
       let coverLetterFileUrl = '';
 
@@ -262,27 +536,28 @@ export default function CareersPage() {
       }
 
       const applicationData = {
-        position_id: parseInt(formData.positionId),
-        position_applied: formData.position,
-        first_name: formData.firstName.trim(),
-        last_name: formData.lastName.trim(),
+        job_position_id: parseInt(formData.positionId),
+        applicant_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        cover_letter: formData.coverLetter.trim(),
         resume_url: resumeUrl,
+        cover_letter_url: coverLetterFileUrl || null,
+        security_clearance: formData.securityClearance || 'None',
+        veteran_status: formData.veteranStatus || false,
+        source: 'careers_website',
+        notes: formData.coverLetter.trim(),
         linkedin_url: formData.linkedinUrl.trim() || null,
-        portfolio_url: formData.portfolioUrl.trim() || null,
-        source: 'careers_website'
+        portfolio_url: formData.portfolioUrl.trim() || null
       };
 
-      console.log('📝 Submitting application data:', {
-        name: `${applicationData.first_name} ${applicationData.last_name}`,
+      console.log('📝 Submitting application to ATS:', {
+        name: applicationData.applicant_name,
         email: applicationData.email,
-        position: applicationData.position_applied,
+        position_id: applicationData.job_position_id,
         hasResume: !!resumeUrl
       });
 
-      const response = await fetch('/api/applications', {
+      const response = await fetch(`${ATS_API_BASE}/applications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -292,12 +567,12 @@ export default function CareersPage() {
 
       const result = await response.json();
 
-      if (!response.ok || !result.application) {
-        throw new Error(result.error || `Server error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(result.error || `ATS API error: ${response.status}`);
       }
 
-      console.log('✅ Application submitted successfully:', {
-        applicationId: result.application.id,
+      console.log('✅ Application submitted successfully to ATS:', {
+        applicationId: result.applicationId,
         message: result.message
       });
 
@@ -316,7 +591,9 @@ export default function CareersPage() {
         resume: null,
         coverLetterFile: null,
         linkedinUrl: '',
-        portfolioUrl: ''
+        portfolioUrl: '',
+        securityClearance: 'None',
+        veteranStatus: false
       });
 
       // Clear file inputs
@@ -330,7 +607,7 @@ export default function CareersPage() {
         (window as any).gtag('event', 'application_submitted', {
           'job_position': formData.position,
           'application_source': 'careers_page',
-          'application_id': result.application.id
+          'application_id': result.applicationId
         });
       }
 
@@ -360,6 +637,7 @@ export default function CareersPage() {
   };
 
   const handleApplyClick = (position: Position) => {
+    console.log('Apply button clicked for position:', position.title);
     setSelectedPosition(position);
     setFormData({ 
       ...formData, 
@@ -369,14 +647,21 @@ export default function CareersPage() {
     setShowApplicationForm(true);
     setSubmitSuccess(false);
     setSubmitError(null);
+    setFormErrors({});
   };
 
-  const formatSalary = (min?: number, max?: number) => {
+  const formatSalary = (min?: number, max?: number, range?: string) => {
+    if (range) return range;
+    
     if (!min && !max) return null;
     if (min && max) return `$${(min/1000).toFixed(0)}K - $${(max/1000).toFixed(0)}K`;
     if (min) return `$${(min/1000).toFixed(0)}K+`;
     if (max) return `Up to $${(max/1000).toFixed(0)}K`;
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <>
@@ -385,7 +670,8 @@ export default function CareersPage() {
         <meta name="description" content="Join the Precise Analytics team and help drive data transformation in mission-driven sectors." />
       </Head>
 
-      <AnimatedHeader />
+      {/* Unified Header */}
+      <UnifiedHeader isATS={false} />
 
       <PageWrapper>
         <Container>
@@ -417,7 +703,9 @@ export default function CareersPage() {
             <SectionSubtitle>
               Explore opportunities to grow your career with us
               {positions.length > 0 && (
-                <PositionCount>{positions.length} open position{positions.length !== 1 ? 's' : ''}</PositionCount>
+                <PositionCount>
+                  {positions.length} open position{positions.length !== 1 ? 's' : ''}
+                </PositionCount>
               )}
             </SectionSubtitle>
             
@@ -444,12 +732,18 @@ export default function CareersPage() {
                       <JobMeta>
                         <JobLocation>{position.location}</JobLocation>
                         <JobDepartment>{position.department}</JobDepartment>
+                        {position.experience_level && (
+                          <JobLevel>{position.experience_level}</JobLevel>
+                        )}
                       </JobMeta>
-                      {formatSalary(position.salary_min, position.salary_max) && (
-                        <SalaryRange>{formatSalary(position.salary_min, position.salary_max)}</SalaryRange>
+                      {formatSalary(position.salary_min, position.salary_max, position.salary_range) && (
+                        <SalaryRange>{formatSalary(position.salary_min, position.salary_max, position.salary_range)}</SalaryRange>
                       )}
-                      {position.application_count !== undefined && (
-                        <ApplicationCount>{position.application_count} applications</ApplicationCount>
+                      {position.security_clearance && position.security_clearance !== 'None' && (
+                        <SecurityClearance>🔒 {position.security_clearance} Clearance</SecurityClearance>
+                      )}
+                      {position.applications_count !== undefined && (
+                        <ApplicationCount>{position.applications_count} applications</ApplicationCount>
                       )}
                     </JobCardHeader>
                     
@@ -459,7 +753,7 @@ export default function CareersPage() {
                       <RequirementsTitle>Key Requirements:</RequirementsTitle>
                       <RequirementsList>
                         {position.requirements.map((req, i) => (
-                          <RequirementItem key={i}>{req}</RequirementItem>
+                          <RequirementItem key={i}>{req.replace(/^[•\-\*]\s*/, '')}</RequirementItem>
                         ))}
                       </RequirementsList>
                     </RequirementsSection>
@@ -482,8 +776,12 @@ export default function CareersPage() {
 
           {/* Application Form Modal */}
           {showApplicationForm && selectedPosition && (
-            <ApplicationModal>
-              <ModalContent>
+            <ApplicationModal onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowApplicationForm(false);
+              }
+            }}>
+              <ModalContent onClick={(e) => e.stopPropagation()}>
                 <ModalHeader>
                   <div>
                     <ModalTitle>Apply for {selectedPosition.title}</ModalTitle>
@@ -600,6 +898,39 @@ export default function CareersPage() {
                     </FormField>
                   </FormGrid>
 
+                  {/* Federal Contracting Fields */}
+                  <FormGrid>
+                    <FormField>
+                      <label htmlFor="securityClearance">Security Clearance</label>
+                      <select
+                        id="securityClearance"
+                        name="securityClearance"
+                        value={formData.securityClearance}
+                        onChange={handleChange}
+                      >
+                        <option value="None">None</option>
+                        <option value="Public Trust">Public Trust</option>
+                        <option value="Secret">Secret</option>
+                        <option value="Top Secret">Top Secret</option>
+                        <option value="TS/SCI">TS/SCI</option>
+                      </select>
+                    </FormField>
+
+                    <FormField>
+                      <VeteranCheckbox>
+                        <input
+                          type="checkbox"
+                          id="veteranStatus"
+                          name="veteranStatus"
+                          checked={formData.veteranStatus}
+                          onChange={handleChange}
+                        />
+                        <label htmlFor="veteranStatus">I am a U.S. Military Veteran</label>
+                      </VeteranCheckbox>
+                      <VeteranNote>For SDVOSB compliance and preference consideration</VeteranNote>
+                    </FormField>
+                  </FormGrid>
+
                   <FileUploadGrid>
                     <FileUploadWrapper>
                       <label htmlFor="resume">Resume/CV *</label>
@@ -683,9 +1014,311 @@ export default function CareersPage() {
   );
 }
 
-// Styled Components (keeping all your existing styles and adding new ones)
+/* ===========================================
+   STYLED COMPONENTS - HEADER
+   =========================================== */
+
+const HeaderWrapper = styled.header<{ isScrolled: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  background: ${props => props.isScrolled 
+    ? 'rgba(var(--background), 0.95)' 
+    : 'rgba(var(--background), 0.9)'};
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(var(--text), 0.1);
+  box-shadow: ${props => props.isScrolled 
+    ? '0 4px 20px rgba(0, 0, 0, 0.1)' 
+    : 'none'};
+`;
+
+const HeaderContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+    height: 70px;
+  }
+`;
+
+const LogoSection = styled.div`
+  flex-shrink: 0;
+`;
+
+const LogoLink = styled.a`
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+`;
+
+const LogoText = styled.h1`
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, rgb(255, 125, 0), rgb(255, 165, 0));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
+`;
+
+const ATSBadge = styled.span`
+  background: linear-gradient(135deg, rgb(255, 125, 0), rgb(255, 165, 0));
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+`;
+
+const LogoSubtext = styled.p`
+  font-size: 0.9rem;
+  color: rgb(var(--text), 0.7);
+  margin: 0;
+  font-weight: 500;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
+`;
+
+const DesktopNav = styled.nav`
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const NavItem = styled.div`
+  position: relative;
+`;
+
+const NavLink = styled.a<{ isActive: boolean }>`
+  text-decoration: none;
+  color: ${props => props.isActive 
+    ? 'rgb(255, 125, 0)' 
+    : 'rgb(var(--text), 0.8)'};
+  font-weight: ${props => props.isActive ? '600' : '500'};
+  font-size: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+
+  &:hover {
+    color: rgb(255, 125, 0);
+    background: rgba(255, 125, 0, 0.1);
+  }
+
+  ${props => props.isActive && `
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 2px;
+      background: rgb(255, 125, 0);
+      border-radius: 1px;
+    }
+  `}
+`;
+
+const ExternalNavLink = styled.a`
+  text-decoration: none;
+  color: rgb(var(--text), 0.8);
+  font-weight: 500;
+  font-size: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+
+  &:hover {
+    color: rgb(255, 125, 0);
+    background: rgba(255, 125, 0, 0.1);
+  }
+`;
+
+const CTASection = styled.div`
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const CTAButton = styled.button`
+  background: linear-gradient(135deg, rgb(255, 125, 0), rgb(255, 165, 0));
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 0.8rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 125, 0, 0.3);
+  }
+`;
+
+const MobileMenuButton = styled.button`
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
+const MenuIcon = styled.div<{ isOpen: boolean }>`
+  width: 24px;
+  height: 18px;
+  position: relative;
+  
+  span {
+    display: block;
+    position: absolute;
+    height: 2px;
+    width: 100%;
+    background: rgb(var(--text));
+    border-radius: 1px;
+    opacity: 1;
+    left: 0;
+    transform: rotate(0deg);
+    transition: 0.25s ease-in-out;
+
+    &:nth-child(1) {
+      top: ${props => props.isOpen ? '8px' : '0px'};
+      transform: ${props => props.isOpen ? 'rotate(135deg)' : 'rotate(0deg)'};
+    }
+
+    &:nth-child(2) {
+      top: 8px;
+      opacity: ${props => props.isOpen ? '0' : '1'};
+      left: ${props => props.isOpen ? '-30px' : '0px'};
+    }
+
+    &:nth-child(3) {
+      top: ${props => props.isOpen ? '8px' : '16px'};
+      transform: ${props => props.isOpen ? 'rotate(-135deg)' : 'rotate(0deg)'};
+    }
+  }
+`;
+
+const MobileMenu = styled(motion.div)`
+  background: rgba(var(--cardBackground), 0.98);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(var(--text), 0.1);
+  overflow: hidden;
+
+  @media (min-width: 769px) {
+    display: none;
+  }
+`;
+
+const MobileNavList = styled.ul`
+  list-style: none;
+  padding: 2rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const MobileNavItem = styled.li`
+  margin: 0;
+`;
+
+const MobileNavLink = styled.a<{ isActive: boolean }>`
+  display: block;
+  text-decoration: none;
+  color: ${props => props.isActive 
+    ? 'rgb(255, 125, 0)' 
+    : 'rgb(var(--text), 0.8)'};
+  font-weight: ${props => props.isActive ? '600' : '500'};
+  font-size: 1.1rem;
+  padding: 1rem;
+  border-radius: 0.8rem;
+  transition: all 0.3s ease;
+  background: ${props => props.isActive 
+    ? 'rgba(255, 125, 0, 0.1)' 
+    : 'transparent'};
+
+  &:hover {
+    color: rgb(255, 125, 0);
+    background: rgba(255, 125, 0, 0.1);
+  }
+`;
+
+const MobileExternalLink = styled.a`
+  display: block;
+  text-decoration: none;
+  color: rgb(var(--text), 0.8);
+  font-weight: 500;
+  font-size: 1.1rem;
+  padding: 1rem;
+  border-radius: 0.8rem;
+  transition: all 0.3s ease;
+
+  &:hover {
+    color: rgb(255, 125, 0);
+    background: rgba(255, 125, 0, 0.1);
+  }
+`;
+
+const MobileCTAButton = styled.button`
+  width: 100%;
+  background: linear-gradient(135deg, rgb(255, 125, 0), rgb(255, 165, 0));
+  color: white;
+  border: none;
+  padding: 1rem 1.5rem;
+  border-radius: 0.8rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 125, 0, 0.3);
+  }
+`;
+
+/* ===========================================
+   STYLED COMPONENTS - MAIN PAGE
+   =========================================== */
+
 const PageWrapper = styled.div`
-  padding: 4rem 0;
+  padding: 8rem 0 4rem 0;
+  min-height: 100vh;
+  background: rgb(var(--background));
 `;
 
 const PageTitle = styled.h1`
@@ -737,7 +1370,7 @@ const LoadingText = styled.p`
 `;
 
 const PositionsSection = styled.section`
-  margin-top: 8rem;
+  margin-top: 2rem;
 `;
 
 const SectionTitle = styled.h2`
@@ -819,6 +1452,7 @@ const JobCard = styled.div`
   padding: 3rem;
   box-shadow: var(--shadow-md);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid rgba(var(--text), 0.1);
 
   &:hover {
     transform: translateY(-5px);
@@ -864,11 +1498,31 @@ const JobDepartment = styled.span`
   color: rgb(34, 197, 94);
 `;
 
+const JobLevel = styled.span`
+  font-size: 1.4rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 2rem;
+  color: rgb(59, 130, 246);
+`;
+
 const SalaryRange = styled.div`
   font-size: 1.6rem;
   color: rgb(34, 197, 94);
   font-weight: 600;
   margin-top: 0.5rem;
+`;
+
+const SecurityClearance = styled.div`
+  font-size: 1.4rem;
+  color: rgb(220, 38, 38);
+  font-weight: 600;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0.8rem;
+  margin-top: 0.5rem;
+  display: inline-block;
 `;
 
 const ApplicationCount = styled.span`
@@ -957,10 +1611,10 @@ const ApplyButton = styled.button`
     background: rgb(255, 125, 0);
     color: white;
     transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 125, 0, 0.3);
   }
 `;
 
-// Success message styles
 const SuccessMessage = styled.div`
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.05));
   border: 2px solid rgba(34, 197, 94, 0.3);
@@ -1040,7 +1694,6 @@ const SubmitAnotherBtn = styled.button`
   ${mq('<=tablet', 'width: 100%;')}
 `;
 
-// Modal styles
 const ApplicationModal = styled.div`
   position: fixed;
   top: 0;
@@ -1066,6 +1719,7 @@ const ModalContent = styled.div`
   width: 100%;
   max-height: 90vh;
   overflow: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
   ${mq('<=tablet', 'padding: 3rem 2rem;')}
 `;
 
@@ -1110,7 +1764,6 @@ const CloseButton = styled.button`
   }
 `;
 
-// Error message styles
 const ErrorMessage = styled.div`
   background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(239, 68, 68, 0.05));
   border: 2px solid rgba(220, 38, 38, 0.3);
@@ -1162,7 +1815,6 @@ const RetryButton = styled.button`
   align-self: center;
 `;
 
-// Form styles
 const Form = styled.form`
   display: flex;
   flex-direction: column;
@@ -1181,6 +1833,10 @@ const Form = styled.form`
     background: rgba(var(--background), 0.9);
     color: rgb(var(--text));
     transition: border-color 0.3s ease;
+
+    &::placeholder {
+      color: rgb(var(--text), 0.5);
+    }
 
     &:focus {
       outline: none;
@@ -1262,6 +1918,34 @@ const PhoneNote = styled.small`
 `;
 
 const MessageNote = styled.small`
+  font-size: 1.2rem;
+  color: rgb(var(--text), 0.6);
+  margin-top: 0.5rem;
+  font-style: italic;
+`;
+
+const VeteranCheckbox = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  
+  input[type="checkbox"] {
+    width: 1.8rem;
+    height: 1.8rem;
+    accent-color: rgb(255, 125, 0);
+  }
+  
+  label {
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: rgb(var(--text));
+    cursor: pointer;
+    margin: 0;
+  }
+`;
+
+const VeteranNote = styled.small`
   font-size: 1.2rem;
   color: rgb(var(--text), 0.6);
   margin-top: 0.5rem;
