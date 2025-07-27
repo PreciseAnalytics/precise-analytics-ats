@@ -5,41 +5,69 @@ const sql = neon(process.env.DATABASE_URL);
 export async function PUT(request, { params }) {
   try {
     const { id } = params;
-    const jobData = await request.json();
-    console.log(`🔄 Updating job ${id}:`, jobData);
+    const body = await request.json();
     
-    const result = await sql`
-      UPDATE jobs SET
-        title = ${jobData.title},
-        department = ${jobData.department},
-        location = ${jobData.location},
-        type = ${jobData.type},
-        salary_range = ${jobData.salary_range},
-        description = ${jobData.description},
-        requirements = ${jobData.requirements},
-        benefits = ${jobData.benefits},
-        status = ${jobData.status},
-        remote_option = ${jobData.remote_option},
-        expires_at = ${jobData.expires_at},
-        updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    console.log(`🔄 Updating job ${id}:`, body);
+    
+    // Handle status toggle (publish/unpublish)
+    if (body.posted !== undefined) {
+      const result = await sql`
+        UPDATE jobs 
+        SET status = ${body.posted ? 'published' : 'draft'}, updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
 
-    if (result.length === 0) {
+      if (result.length === 0) {
+        return Response.json({
+          success: false,
+          error: 'Job not found'
+        }, { status: 404 });
+      }
+
+      console.log(`✅ Job ${id} ${body.posted ? 'published' : 'unpublished'}`);
+
       return Response.json({
-        success: false,
-        error: 'Job not found'
-      }, { status: 404 });
+        success: true,
+        job: result[0]
+      });
     }
+    
+    // Handle full job update (from edit form)
+    else {
+      const result = await sql`
+        UPDATE jobs SET
+          title = ${body.title},
+          department = ${body.department},
+          location = ${body.location},
+          type = ${body.employment_type || body.type},
+          salary_range = ${body.salary_range},
+          description = ${body.description},
+          requirements = ${body.requirements},
+          benefits = ${body.benefits || ''},
+          status = ${body.posted ? 'published' : 'draft'},
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
 
-    console.log('✅ Job updated:', result[0]);
-    return Response.json({
-      success: true,
-      job: result[0]
-    });
+      if (result.length === 0) {
+        return Response.json({
+          success: false,
+          error: 'Job not found'
+        }, { status: 404 });
+      }
+
+      console.log('✅ Job updated:', result[0]);
+
+      return Response.json({
+        success: true,
+        job: result[0]
+      });
+    }
   } catch (error) {
     console.error('❌ Job update error:', error);
+    
     return Response.json({
       success: false,
       error: 'Failed to update job',
@@ -67,12 +95,14 @@ export async function DELETE(request, { params }) {
     }
 
     console.log('✅ Job deleted:', result[0]);
+
     return Response.json({
       success: true,
       message: 'Job deleted successfully'
     });
   } catch (error) {
     console.error('❌ Job deletion error:', error);
+    
     return Response.json({
       success: false,
       error: 'Failed to delete job',
