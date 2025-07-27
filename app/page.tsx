@@ -858,8 +858,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
   // Fixed handleInputChange - updates the right state based on editing vs creating
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
+    const target = e.target;
+    const { name, value, type } = target;
+    const newValue = type === 'checkbox' ? (target as HTMLInputElement).checked : value;
 
     if (editingJob) {
       // When editing, update editingJob state
