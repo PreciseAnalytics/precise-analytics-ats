@@ -1,1583 +1,1344 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink } from 'lucide-react';
+import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink, Filter, ChevronDown, Eye, Mail, Edit3, Download, Globe, Linkedin, X, Phone, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Building, Settings, Plus } from 'lucide-react';
 
-// Define types for your application
-type User = {
-  id: string;
-  name?: string;
-  email: string;
-};
-
+// Type definitions
 type Application = {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  position: string;
-  location: string;
-  stage: string;
-  applied_date: string;
-  source: string;
+  job_title: string;
+  status: string;
+  applied_at: string;
+  application_source: string;
+  phone?: string;
+  notes?: string;
+  resume_url?: string;
+  cover_letter_url?: string;
+  portfolio_url?: string;
+  linkedin_url?: string;
 };
 
-type LoginData = {
-  email: string;
-  password: string;
+type Alert = {
+  type: 'success' | 'error' | 'warning';
+  message: string;
+} | null;
+
+// Component prop types
+type NavigationProps = {
+  onNavigate: (page: string) => void;
 };
 
-type StageColors = {
-  bg: string;
-  text: string;
-  border: string;
+type PreciseAnalyticsLogoProps = {
+  clickable?: boolean;
+  onClick: () => void;
 };
 
-export default function DashboardPage() {
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' });
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  
-  // NEW: Forgot password state
+// Enhanced status mapping with proper typing
+const STATUS_MAPPING: Record<string, string> = {
+  'applied': 'applied',
+  'submitted': 'applied',
+  'shortlisted_for_interview': 'shortlisted_for_interview',
+  'first_interview': 'first_interview',
+  'second_interview': 'second_interview', 
+  'background_check': 'onboarding',
+  'hired': 'onboarding',
+  'onboarding': 'onboarding',
+  'not_selected': 'not_hired',
+  'not_hired': 'not_hired',
+  'rejected': 'not_hired',
+  'withdrawn': 'withdrawn'
+};
+
+const normalizeStatus = (status: string): string => {
+  return STATUS_MAPPING[status?.toLowerCase()] || status;
+};
+
+// Status categories for enhanced counters
+const STATUS_CATEGORIES: Record<string, string[]> = {
+  new_applications: ['applied'],
+  first_interview: ['first_interview'],
+  second_interview: ['second_interview'],
+  onboarding: ['onboarding'],
+  not_hired: ['not_hired'],
+  withdrawn: ['withdrawn']
+};
+
+const PreciseAnalyticsLogo = ({ clickable = false, onClick }: PreciseAnalyticsLogoProps) => (
+  <div className={`flex items-center space-x-3 ${clickable ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`} onClick={onClick}>
+    <div className="flex items-center space-x-2">
+      <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+        <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 bg-white rounded-full opacity-90"></div>
+          ))}
+        </div>
+      </div>
+      <div className="text-2xl font-bold">
+        <span className="bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Precise Analytics
+        </span>
+      </div>
+    </div>
+  </div>
+);
+
+const LoginPage = ({ onNavigate }: NavigationProps) => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [forgotPasswordStatus, setForgotPasswordStatus] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Enhanced theme with better colors and spacing - matches main website
-  const theme = {
-    primaryGreen: '#9ACD32',
-    primaryOrange: '#FF7F00',
-    darkBlue: '#1e3a8a', // Deeper blue for government feel
-    navy: '#1e40af',
-    tealAccent: '#40E0D0',
-    gradient: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%)',
-    orangeGradient: 'linear-gradient(135deg, #FF7F00, #FF8C00)',
-    greenGradient: 'linear-gradient(135deg, #9ACD32, #40E0D0)',
-    textColor: 'rgb(51, 65, 85)',
-    textLight: 'rgba(51, 65, 85, 0.8)',
-    cardBackground: 'rgba(255, 255, 255, 0.98)',
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-    shadowMd: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    shadowLg: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-    shadowXl: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
   };
 
-  // Check for existing authentication on component mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const response = await fetch('/api/auth/verify');
-      const result = await response.json();
-      
-      if (result.success) {
-        setIsLoggedIn(true);
-        setUser(result.user);
-        await fetchApplications();
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setLoginError('');
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginData),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setIsLoggedIn(true);
-        setUser(result.user);
-        setIsLoginOpen(false);
-        setLoginData({ email: '', password: '' });
-        await fetchApplications();
+      // Simple authentication check
+      if (formData.email === 'careers@preciseanalytics.io' && formData.password === 'admin123') {
+        localStorage.setItem('ats_auth', 'true');
+        onNavigate('dashboard');
       } else {
-        setLoginError(result.error || 'Login failed');
+        setError('Invalid credentials. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setLoginError('Network error. Please try again.');
+      setError('Login failed. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // NEW: Forgot password handler
-  const handleForgotPassword = async () => {
-    if (!forgotPasswordEmail) {
-      setForgotPasswordStatus('Please enter your email address');
-      return;
-    }
+  const handleForgotPassword = () => {
+    const subject = 'ATS Password Reset Request';
+    const body = 'Please reset my ATS password for careers@preciseanalytics.io';
+    const mailtoLink = `mailto:admin@preciseanalytics.io?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    setShowForgotPassword(false);
+  };
 
-    setIsLoading(true);
-    setForgotPasswordStatus('');
-
-    try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotPasswordEmail }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setForgotPasswordStatus('✅ Password reset instructions sent to your email');
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotPasswordEmail('');
-          setForgotPasswordStatus('');
-        }, 3000);
-      } else {
-        setForgotPasswordStatus(result.error || 'Failed to send reset instructions');
-      }
-    } catch (error) {
-      console.error('Forgot password error:', error);
-      setForgotPasswordStatus('Network error. Please contact your administrator.');
-    } finally {
-      setIsLoading(false);
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleLogin();
     }
   };
-
-  const fetchApplications = async () => {
-    try {
-      const response = await fetch('/api/applications');
-      const applications = await response.json();
-      
-      if (Array.isArray(applications)) {
-        setApplications(applications);
-      } else {
-        console.error('Failed to fetch applications: Invalid response format');
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/login', { method: 'DELETE' });
-      setIsLoggedIn(false);
-      setUser(null);
-      setApplications([]);
-    } catch (error) {
-      console.error('Logout error:', error);
-      setIsLoggedIn(false);
-      setUser(null);
-      setApplications([]);
-    }
-  };
-
-  // Homepage redirect function
-  const goToHomepage = () => {
-    window.location.href = '/';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getStageColors = (stage: string): StageColors => {
-    const colors: Record<string, StageColors> = {
-      'Applied': { bg: 'rgba(59, 130, 246, 0.12)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
-      'Screening': { bg: 'rgba(251, 191, 36, 0.12)', text: '#f59e0b', border: 'rgba(251, 191, 36, 0.3)' },
-      'Technical Review': { bg: 'rgba(147, 51, 234, 0.12)', text: '#9333ea', border: 'rgba(147, 51, 234, 0.3)' },
-      'Interview': { bg: 'rgba(255, 125, 0, 0.12)', text: '#ff7d00', border: 'rgba(255, 125, 0, 0.3)' },
-      'Offer': { bg: 'rgba(34, 197, 94, 0.12)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)' },
-      'Hired': { bg: 'rgba(34, 197, 94, 0.2)', text: '#15803d', border: 'rgba(34, 197, 94, 0.5)' },
-      'Rejected': { bg: 'rgba(239, 68, 68, 0.12)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' }
-    };
-    return colors[stage] || colors['Applied'];
-  };
-
-  // Create dots pattern for logo
-  const createDotsPattern = () => {
-    const pattern = [
-      [0,1,0,1,0],
-      [1,1,1,1,1],
-      [0,1,1,1,0],
-      [1,1,1,1,1],
-      [0,1,0,1,0]
-    ];
-    
-    return pattern.map((row, i) => 
-      row.map((dot, j) => (
-        <div 
-          key={`${i}-${j}`} 
-          style={{ 
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            opacity: dot ? 1 : 0.2,
-            background: dot ? theme.tealAccent : 'rgba(64, 224, 208, 0.2)'
-          }} 
-        />
-      ))
-    ).flat();
-  };
-
-  const ApplicationsDashboard = () => (
-    <div style={{ padding: '2.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '3rem',
-        padding: '2rem',
-        background: theme.cardBackground,
-        borderRadius: '16px',
-        boxShadow: theme.shadowMd
-      }}>
-        <div>
-          <h2 style={{
-            fontSize: '2.5rem',
-            fontWeight: '800',
-            color: theme.textColor,
-            margin: '0 0 0.5rem 0',
-            letterSpacing: '-0.025em'
-          }}>
-            Applications Dashboard
-          </h2>
-          <p style={{
-            color: theme.textLight,
-            margin: 0,
-            fontSize: '1.2rem',
-            fontWeight: '500'
-          }}>
-            Welcome back, <span style={{color: theme.primaryGreen, fontWeight: '600'}}>{user?.name || user?.email}</span>
-          </p>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button
-            onClick={goToHomepage}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: 'rgba(59, 130, 246, 0.1)',
-              color: '#3b82f6',
-              border: '2px solid rgba(59, 130, 246, 0.2)',
-              padding: '0.75rem 1.25rem',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              textDecoration: 'none'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(59, 130, 246, 0.2)';
-              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
-            }}
-          >
-            <Home size={18} />
-            ATS Home
-          </button>
-          
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: theme.orangeGradient,
-              color: 'white',
-              border: 'none',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 15px rgba(255, 127, 0, 0.3)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 127, 0, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 127, 0, 0.3)';
-            }}
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      </div>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '2rem',
-        marginBottom: '3rem'
-      }}>
-        <div style={{
-          background: theme.cardBackground,
-          padding: '2rem',
-          borderRadius: '16px',
-          boxShadow: theme.shadowMd,
-          border: '1px solid rgba(154, 205, 50, 0.1)',
-          transition: 'all 0.3s ease'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{
-              background: 'rgba(154, 205, 50, 0.1)',
-              padding: '0.75rem',
-              borderRadius: '12px',
-              marginRight: '1rem'
-            }}>
-              <FileText size={24} color={theme.primaryGreen} />
-            </div>
-            <h3 style={{ 
-              color: theme.textColor, 
-              margin: 0,
-              fontSize: '1.1rem',
-              fontWeight: '600'
-            }}>Total Applications</h3>
-          </div>
-          <p style={{ 
-            fontSize: '2.5rem', 
-            fontWeight: '800', 
-            color: theme.primaryGreen, 
-            margin: 0,
-            letterSpacing: '-0.02em'
-          }}>
-            {applications.length}
-          </p>
-          <p style={{
-            fontSize: '0.9rem',
-            color: theme.textLight,
-            margin: '0.5rem 0 0 0'
-          }}>
-            All time submissions
-          </p>
-        </div>
-        
-        <div style={{
-          background: theme.cardBackground,
-          padding: '2rem',
-          borderRadius: '16px',
-          boxShadow: theme.shadowMd,
-          border: '1px solid rgba(255, 127, 0, 0.1)',
-          transition: 'all 0.3s ease'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{
-              background: 'rgba(255, 127, 0, 0.1)',
-              padding: '0.75rem',
-              borderRadius: '12px',
-              marginRight: '1rem'
-            }}>
-              <Users size={24} color={theme.primaryOrange} />
-            </div>
-            <h3 style={{ 
-              color: theme.textColor, 
-              margin: 0,
-              fontSize: '1.1rem',
-              fontWeight: '600'
-            }}>In Review</h3>
-          </div>
-          <p style={{ 
-            fontSize: '2.5rem', 
-            fontWeight: '800', 
-            color: theme.primaryOrange, 
-            margin: 0,
-            letterSpacing: '-0.02em'
-          }}>
-            {applications.filter(app => app.stage === 'Interview').length}
-          </p>
-          <p style={{
-            fontSize: '0.9rem',
-            color: theme.textLight,
-            margin: '0.5rem 0 0 0'
-          }}>
-            Active interviews
-          </p>
-        </div>
-        
-        <div style={{
-          background: theme.cardBackground,
-          padding: '2rem',
-          borderRadius: '16px',
-          boxShadow: theme.shadowMd,
-          border: '1px solid rgba(64, 224, 208, 0.1)',
-          transition: 'all 0.3s ease'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{
-              background: 'rgba(64, 224, 208, 0.1)',
-              padding: '0.75rem',
-              borderRadius: '12px',
-              marginRight: '1rem'
-            }}>
-              <BarChart3 size={24} color={theme.tealAccent} />
-            </div>
-            <h3 style={{ 
-              color: theme.textColor, 
-              margin: 0,
-              fontSize: '1.1rem',
-              fontWeight: '600'
-            }}>New Today</h3>
-          </div>
-          <p style={{ 
-            fontSize: '2.5rem', 
-            fontWeight: '800', 
-            color: theme.tealAccent, 
-            margin: 0,
-            letterSpacing: '-0.02em'
-          }}>
-            {applications.filter(app => 
-              new Date(app.applied_date).toDateString() === new Date().toDateString()
-            ).length}
-          </p>
-          <p style={{
-            fontSize: '0.9rem',
-            color: theme.textLight,
-            margin: '0.5rem 0 0 0'
-          }}>
-            Today's submissions
-          </p>
-        </div>
-      </div>
-
-      <div style={{
-        background: theme.cardBackground,
-        borderRadius: '16px',
-        boxShadow: theme.shadowLg,
-        overflow: 'hidden',
-        border: '1px solid rgba(0, 0, 0, 0.05)'
-      }}>
-        <div style={{
-          padding: '2rem',
-          borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
-          background: 'linear-gradient(135deg, rgba(154, 205, 50, 0.08), rgba(64, 224, 208, 0.08))'
-        }}>
-          <h3 style={{
-            fontSize: '1.8rem',
-            fontWeight: '700',
-            color: theme.textColor,
-            margin: '0 0 0.5rem 0'
-          }}>
-            Recent Applications
-          </h3>
-          <p style={{
-            color: theme.textLight,
-            margin: 0,
-            fontSize: '1.1rem'
-          }}>
-            Latest candidate submissions from preciseanalytics.io/careers
-          </p>
-        </div>
-        
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ background: 'rgba(248, 250, 252, 0.8)' }}>
-              <tr>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Candidate</th>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Position</th>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Status</th>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Applied</th>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Source</th>
-                <th style={{
-                  padding: '1.5rem',
-                  textAlign: 'left',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  borderBottom: '2px solid rgba(0, 0, 0, 0.1)'
-                }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {applications.map((application) => {
-                const stageColors = getStageColors(application.stage);
-                return (
-                  <tr key={application.id} style={{
-                    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-                    transition: 'background 0.2s ease'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = 'rgba(248, 250, 252, 0.5)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}>
-                    <td style={{ padding: '1.5rem' }}>
-                      <div>
-                        <div style={{
-                          fontSize: '1.1rem',
-                          fontWeight: '700',
-                          color: theme.textColor,
-                          marginBottom: '0.3rem'
-                        }}>
-                          {application.first_name} {application.last_name}
-                        </div>
-                        <div style={{
-                          fontSize: '0.95rem',
-                          color: theme.textLight
-                        }}>
-                          {application.email}
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1.5rem' }}>
-                      <div style={{
-                        fontSize: '1rem',
-                        fontWeight: '600',
-                        color: theme.textColor,
-                        marginBottom: '0.2rem'
-                      }}>
-                        {application.position}
-                      </div>
-                      <div style={{
-                        fontSize: '0.9rem',
-                        color: theme.textLight
-                      }}>
-                        {application.location}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1.5rem' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.9rem',
-                        fontWeight: '700',
-                        borderRadius: '20px',
-                        background: stageColors.bg,
-                        color: stageColors.text,
-                        border: `2px solid ${stageColors.border}`
-                      }}>
-                        {application.stage}
-                      </span>
-                    </td>
-                    <td style={{ 
-                      padding: '1.5rem',
-                      fontSize: '1rem',
-                      fontWeight: '500',
-                      color: theme.textLight
-                    }}>
-                      {formatDate(application.applied_date)}
-                    </td>
-                    <td style={{ 
-                      padding: '1.5rem',
-                      fontSize: '0.95rem',
-                      color: theme.textLight
-                    }}>
-                      <span style={{
-                        background: 'rgba(154, 205, 50, 0.1)',
-                        color: theme.primaryGreen,
-                        padding: '0.3rem 0.8rem',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '600'
-                      }}>
-                        {application.source}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1.5rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button style={{
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          color: '#3b82f6',
-                          border: '1px solid rgba(59, 130, 246, 0.2)',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '8px',
-                          fontSize: '0.9rem',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}>
-                          View
-                        </button>
-                        <button style={{
-                          background: 'rgba(255, 127, 0, 0.1)',
-                          color: theme.primaryOrange,
-                          border: '1px solid rgba(255, 127, 0, 0.2)',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '8px',
-                          fontSize: '0.9rem',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}>
-                          Contact
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          
-          {applications.length === 0 && (
-            <div style={{
-              padding: '3rem',
-              textAlign: 'center',
-              color: theme.textLight
-            }}>
-              <div style={{
-                fontSize: '1.2rem',
-                marginBottom: '0.5rem',
-                fontWeight: '600'
-              }}>
-                No applications yet
-              </div>
-              <p style={{ margin: 0, fontSize: '1rem' }}>
-                Applications from your careers page will appear here automatically.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Footer */}
-      <div style={{
-        marginTop: '3rem',
-        textAlign: 'center',
-        padding: '2rem',
-        background: theme.cardBackground,
-        borderRadius: '16px',
-        boxShadow: theme.shadowMd
-      }}>
-        <p style={{
-          fontSize: '1rem',
-          fontWeight: '600',
-          color: theme.textColor,
-          margin: '0 0 0.5rem 0'
-        }}>
-          Precise Analytics ATS • Virginia SDVOSB • Minority-Owned Business
-        </p>
-        <p style={{
-          fontSize: '0.9rem',
-          color: theme.textLight,
-          margin: 0
-        }}>
-          Secure federal contracting recruitment platform
-        </p>
-      </div>
-    </div>
-  );
-
-  const quickActions = [
-    { icon: <Search size={28} />, title: 'View Applications', description: 'Browse all candidates' },
-    { icon: <UserPlus size={28} />, title: 'Add Position', description: 'Create job posting' },
-    { icon: <FileText size={28} />, title: 'Reports', description: 'Generate analytics' },
-    { icon: <BarChart3 size={28} />, title: 'Pipeline', description: 'Track progress' }
-  ];
-
-  if (isLoggedIn) {
-    return (
-      <div style={{ 
-        minHeight: '100vh',
-        background: theme.background,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <header style={{
-          background: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
-          padding: '1.5rem 0',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-        }}>
-          <div style={{
-            maxWidth: '1400px',
-            margin: '0 auto',
-            padding: '0 2rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <div 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2rem',
-                cursor: 'pointer'
-              }}
-              onClick={goToHomepage}
-            >
-              <div style={{
-                background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
-                padding: '1.5rem',
-                borderRadius: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: '220px',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
-                border: '1px solid rgba(59, 130, 246, 0.3)'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
-              }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: '4px',
-                  marginBottom: '0.75rem'
-                }}>
-                  {createDotsPattern()}
-                </div>
-                <h1 style={{
-                  fontSize: '1.4rem',
-                  fontWeight: '800',
-                  color: theme.primaryGreen,
-                  margin: '0.5rem 0 0.2rem 0',
-                  letterSpacing: '1.5px'
-                }}>PRECISE</h1>
-                <h1 style={{
-                  fontSize: '1.4rem',
-                  fontWeight: '800',
-                  color: theme.primaryGreen,
-                  margin: '0 0 0.3rem 0',
-                  letterSpacing: '1.5px'
-                }}>ANALYTICS</h1>
-                <p style={{
-                  fontSize: '0.8rem',
-                  color: theme.primaryOrange,
-                  margin: '0 0 0.5rem 0',
-                  fontWeight: '700',
-                  letterSpacing: '0.8px'
-                }}>YOUR DATA, OUR INSIGHTS!</p>
-                <div style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center'
-                }}>
-                  <span style={{
-                    fontSize: '0.6rem',
-                    background: 'rgba(34, 197, 94, 0.2)',
-                    color: '#22c55e',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    border: '1px solid rgba(34, 197, 94, 0.3)'
-                  }}>VOSB</span>
-                  <span style={{
-                    fontSize: '0.6rem',
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    color: '#3b82f6',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    border: '1px solid rgba(59, 130, 246, 0.3)'
-                  }}>SDVOSB</span>
-                  <span style={{
-                    fontSize: '0.6rem',
-                    background: 'rgba(147, 51, 234, 0.2)',
-                    color: '#9333ea',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    border: '1px solid rgba(147, 51, 234, 0.3)'
-                  }}>MBE</span>
-                </div>
-              </div>
-              <div style={{ color: 'white' }}>
-                <h2 style={{
-                  fontSize: '2.2rem',
-                  fontWeight: '800',
-                  color: 'white',
-                  margin: '0 0 0.5rem 0',
-                  letterSpacing: '-0.02em'
-                }}>
-                  Applicant Tracking System
-                </h2>
-                <p style={{
-                  fontSize: '1.2rem',
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  margin: '0 0 0.5rem 0',
-                  fontWeight: '500'
-                }}>
-                  Human Resources Portal
-                </p>
-                <div style={{
-                  display: 'flex',
-                  gap: '1rem',
-                  alignItems: 'center'
-                }}>
-                  <span style={{
-                    fontSize: '0.9rem',
-                    background: 'rgba(34, 197, 94, 0.2)',
-                    color: '#22c55e',
-                    padding: '0.3rem 0.8rem',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    border: '1px solid rgba(34, 197, 94, 0.3)'
-                  }}>🔒 Secure Federal Portal</span>
-                  <span style={{
-                    fontSize: '0.9rem',
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    color: '#3b82f6',
-                    padding: '0.3rem 0.8rem',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    border: '1px solid rgba(59, 130, 246, 0.3)'
-                  }}>🇺🇸 Veteran-Owned</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-        <ApplicationsDashboard />
-      </div>
-    );
-  }
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: theme.background,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
-      <header style={{
-        background: 'rgba(15, 23, 42, 0.95)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
-        padding: '1.5rem 0',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: '0 2rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div 
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2rem',
-              cursor: 'pointer'
-            }}
-            onClick={goToHomepage}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
-              padding: '1.5rem',
-              borderRadius: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              minWidth: '220px',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
-              border: '1px solid rgba(59, 130, 246, 0.3)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
-            }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '4px',
-                marginBottom: '0.75rem'
-              }}>
-                {createDotsPattern()}
-              </div>
-              <h1 style={{
-                fontSize: '1.4rem',
-                fontWeight: '800',
-                color: theme.primaryGreen,
-                margin: '0.5rem 0 0.2rem 0',
-                letterSpacing: '1.5px'
-              }}>PRECISE</h1>
-              <h1 style={{
-                fontSize: '1.4rem',
-                fontWeight: '800',
-                color: theme.primaryGreen,
-                margin: '0 0 0.3rem 0',
-                letterSpacing: '1.5px'
-              }}>ANALYTICS</h1>
-              <p style={{
-                fontSize: '0.8rem',
-                color: theme.primaryOrange,
-                margin: '0 0 0.5rem 0',
-                fontWeight: '700',
-                letterSpacing: '0.8px'
-              }}>YOUR DATA, OUR INSIGHTS!</p>
-              <div style={{
-                display: 'flex',
-                gap: '0.5rem',
-                flexWrap: 'wrap',
-                justifyContent: 'center'
-              }}>
-                <span style={{
-                  fontSize: '0.6rem',
-                  background: 'rgba(34, 197, 94, 0.2)',
-                  color: '#22c55e',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  border: '1px solid rgba(34, 197, 94, 0.3)'
-                }}>VOSB</span>
-                <span style={{
-                  fontSize: '0.6rem',
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  color: '#3b82f6',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  border: '1px solid rgba(59, 130, 246, 0.3)'
-                }}>SDVOSB</span>
-                <span style={{
-                  fontSize: '0.6rem',
-                  background: 'rgba(147, 51, 234, 0.2)',
-                  color: '#9333ea',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  border: '1px solid rgba(147, 51, 234, 0.3)'
-                }}>MBE</span>
-              </div>
-            </div>
-            <div style={{ color: 'white' }}>
-              <h2 style={{
-                fontSize: '2.2rem',
-                fontWeight: '800',
-                color: 'white',
-                margin: '0 0 0.5rem 0',
-                letterSpacing: '-0.02em'
-              }}>
-                Applicant Tracking System
-              </h2>
-              <p style={{
-                fontSize: '1.2rem',
-                color: 'rgba(255, 255, 255, 0.8)',
-                margin: '0 0 0.5rem 0',
-                fontWeight: '500'
-              }}>
-                Human Resources Portal
-              </p>
-              <div style={{
-                display: 'flex',
-                gap: '1rem',
-                alignItems: 'center'
-              }}>
-                <span style={{
-                  fontSize: '0.9rem',
-                  background: 'rgba(34, 197, 94, 0.2)',
-                  color: '#22c55e',
-                  padding: '0.3rem 0.8rem',
-                  borderRadius: '12px',
-                  fontWeight: '600',
-                  border: '1px solid rgba(34, 197, 94, 0.3)'
-                }}>🔒 Secure Federal Portal</span>
-                <span style={{
-                  fontSize: '0.9rem',
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  color: '#3b82f6',
-                  padding: '0.3rem 0.8rem',
-                  borderRadius: '12px',
-                  fontWeight: '600',
-                  border: '1px solid rgba(59, 130, 246, 0.3)'
-                }}>🇺🇸 Veteran-Owned</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        {/* Logo and Header */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-6">
+            <PreciseAnalyticsLogo onClick={() => {}} />
           </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Applicant Tracking System</h1>
+          <p className="text-gray-600 font-medium">YOUR DATA, OUR INSIGHTS!</p>
           
-          <button
-            onClick={() => setIsLoginOpen(true)}
-            style={{
-              background: theme.orangeGradient,
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 6px 20px rgba(255, 127, 0, 0.4)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 10px 30px rgba(255, 127, 0, 0.5)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 127, 0, 0.4)';
-            }}
-          >
-            <Lock size={20} />
-            HR Login
-          </button>
-        </div>
-      </header>
-
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '4rem 2rem'
-      }}>
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.98)',
-          borderRadius: '24px',
-          padding: '4rem',
-          boxShadow: theme.shadowXl,
-          textAlign: 'center',
-          maxWidth: '700px',
-          width: '100%',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{
-            width: '100px',
-            height: '100px',
-            background: theme.greenGradient,
-            borderRadius: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 2.5rem',
-            boxShadow: '0 12px 35px rgba(154, 205, 50, 0.4)'
-          }}>
-            <Users size={44} color="white" />
+          {/* Badges */}
+          <div className="flex justify-center space-x-2 mt-4">
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">VOSB</span>
+            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">SDVOSB</span>
+            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">MBE</span>
           </div>
-
-          <h2 style={{
-            fontSize: '3rem',
-            fontWeight: '800',
-            color: theme.textColor,
-            marginBottom: '1.5rem',
-            letterSpacing: '-0.02em'
-          }}>Welcome to HR Portal</h2>
-          
-          <p style={{
-            fontSize: '1.3rem',
-            color: theme.textLight,
-            marginBottom: '3.5rem',
-            lineHeight: '1.6',
-            fontWeight: '500'
-          }}>
-            Manage recruitment, track applications, and streamline your hiring process 
-            with Precise Analytics' comprehensive applicant tracking system.
-          </p>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '2rem',
-            marginBottom: '3.5rem'
-          }}>
-            {quickActions.map((action, index) => (
-              <div 
-                key={index}
-                style={{
-                  background: 'linear-gradient(135deg, rgba(154, 205, 50, 0.1), rgba(64, 224, 208, 0.1))',
-                  border: '2px solid rgba(154, 205, 50, 0.2)',
-                  borderRadius: '16px',
-                  padding: '2rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-5px)';
-                  e.currentTarget.style.boxShadow = '0 12px 30px rgba(154, 205, 50, 0.25)';
-                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(154, 205, 50, 0.15), rgba(64, 224, 208, 0.15))';
-                  e.currentTarget.style.borderColor = 'rgba(154, 205, 50, 0.4)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(154, 205, 50, 0.1), rgba(64, 224, 208, 0.1))';
-                  e.currentTarget.style.borderColor = 'rgba(154, 205, 50, 0.2)';
-                }}
-              >
-                <div style={{
-                  color: theme.primaryGreen,
-                  marginBottom: '1rem',
-                  display: 'flex',
-                  justifyContent: 'center'
-                }}>
-                  {action.icon}
-                </div>
-                <h4 style={{
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  color: theme.textColor,
-                  margin: '0 0 0.5rem 0'
-                }}>
-                  {action.title}
-                </h4>
-                <p style={{
-                  fontSize: '0.9rem',
-                  color: theme.textLight,
-                  margin: 0,
-                  fontWeight: '500'
-                }}>
-                  {action.description}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setIsLoginOpen(true)}
-            style={{
-              background: theme.orangeGradient,
-              color: 'white',
-              border: 'none',
-              padding: '1.5rem 3.5rem',
-              borderRadius: '16px',
-              fontSize: '1.2rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 6px 20px rgba(255, 127, 0, 0.4)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 10px 30px rgba(255, 127, 0, 0.5)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 127, 0, 0.4)';
-            }}
-          >
-            Access HR Dashboard
-          </button>
         </div>
-      </div>
 
-      {/* Enhanced Login Modal with Forgot Password */}
-      {isLoginOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          backdropFilter: 'blur(8px)'
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '3.5rem',
-            borderRadius: '24px',
-            boxShadow: theme.shadowXl,
-            width: '90%',
-            maxWidth: '500px',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => {
-                setIsLoginOpen(false);
-                setShowForgotPassword(false);
-                setForgotPasswordEmail('');
-                setForgotPasswordStatus('');
-                setLoginError('');
-              }}
-              style={{
-                position: 'absolute',
-                top: '1.5rem',
-                right: '1.5rem',
-                background: 'none',
-                border: 'none',
-                fontSize: '2rem',
-                cursor: 'pointer',
-                color: '#64748b',
-                fontWeight: '300'
-              }}
-            >
-              ×
-            </button>
-            
-            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-              <div style={{
-                width: '90px',
-                height: '90px',
-                background: theme.greenGradient,
-                borderRadius: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 2rem',
-                boxShadow: '0 12px 35px rgba(154, 205, 50, 0.4)'
-              }}>
-                <Lock size={40} color="white" />
-              </div>
-              <h2 style={{
-                fontSize: '2.5rem',
-                fontWeight: '800',
-                color: theme.textColor,
-                margin: '0 0 0.75rem 0'
-              }}>
-                {showForgotPassword ? 'Reset Password' : 'HR Portal Login'}
-              </h2>
-              <p style={{
-                color: theme.textLight,
-                margin: 0,
-                fontSize: '1.1rem',
-                fontWeight: '500'
-              }}>
-                {showForgotPassword ? 
-                  'Enter your email to receive reset instructions' : 
-                  'Welcome back! Please sign in to continue.'
-                }
-              </p>
+        {/* Login Form */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          <div className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Enter your email address"
+              />
             </div>
 
             <div>
-              {loginError && (
-                <div style={{
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '2px solid rgba(239, 68, 68, 0.3)',
-                  color: '#ef4444',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  marginBottom: '1.5rem',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  textAlign: 'center'
-                }}>
-                  {loginError}
-                </div>
-              )}
-
-              {forgotPasswordStatus && (
-                <div style={{
-                  background: forgotPasswordStatus.includes('✅') ? 
-                    'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                  border: `2px solid ${forgotPasswordStatus.includes('✅') ? 
-                    'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                  color: forgotPasswordStatus.includes('✅') ? '#22c55e' : '#ef4444',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  marginBottom: '1.5rem',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  textAlign: 'center'
-                }}>
-                  {forgotPasswordStatus}
-                </div>
-              )}
-
-              {!showForgotPassword ? (
-                <>
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    marginBottom: '2rem'
-                  }}>
-                    <label style={{
-                      fontSize: '1.1rem',
-                      fontWeight: '700',
-                      color: theme.textColor,
-                      marginBottom: '0.75rem'
-                    }}>Email Address</label>
-                    <input
-                      type="email"
-                      placeholder="careers@preciseanalytics.io"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                      disabled={isLoading}
-                      style={{
-                        padding: '1.25rem',
-                        fontSize: '1.1rem',
-                        border: `2px solid rgba(154, 205, 50, 0.3)`,
-                        borderRadius: '12px',
-                        background: 'rgba(248, 250, 252, 0.9)',
-                        color: theme.textColor,
-                        transition: 'border-color 0.3s ease',
-                        outline: 'none'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
-                    />
-                  </div>
-
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    marginBottom: '2rem'
-                  }}>
-                    <label style={{
-                      fontSize: '1.1rem',
-                      fontWeight: '700',
-                      color: theme.textColor,
-                      marginBottom: '0.75rem'
-                    }}>Password</label>
-                    <input
-                      type="password"
-                      placeholder="Enter your password"
-                      value={loginData.password}
-                      onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                      disabled={isLoading}
-                      style={{
-                        padding: '1.25rem',
-                        fontSize: '1.1rem',
-                        border: `2px solid rgba(154, 205, 50, 0.3)`,
-                        borderRadius: '12px',
-                        background: 'rgba(248, 250, 252, 0.9)',
-                        color: theme.textColor,
-                        transition: 'border-color 0.3s ease',
-                        outline: 'none'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleLogin}
-                    disabled={isLoading}
-                    style={{
-                      width: '100%',
-                      background: theme.greenGradient,
-                      color: 'white',
-                      border: 'none',
-                      padding: '1.5rem',
-                      borderRadius: '14px',
-                      fontSize: '1.2rem',
-                      fontWeight: '700',
-                      cursor: isLoading ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.3s ease',
-                      boxShadow: '0 6px 20px rgba(154, 205, 50, 0.4)',
-                      opacity: isLoading ? 0.7 : 1,
-                      marginBottom: '1.5rem'
-                    }}
-                    onMouseOver={(e) => {
-                      if (!isLoading) {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 10px 30px rgba(154, 205, 50, 0.5)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (!isLoading) {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(154, 205, 50, 0.4)';
-                      }
-                    }}
-                  >
-                    {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
-                  </button>
-
-                  <div style={{ 
-                    textAlign: 'center',
-                    borderTop: '2px solid rgba(154, 205, 50, 0.2)',
-                    paddingTop: '1.5rem'
-                  }}>
-                    <button
-                      onClick={() => setShowForgotPassword(true)}
-                      style={{
-                        background: 'rgba(249, 115, 22, 0.1)',
-                        border: '2px solid rgba(249, 115, 22, 0.3)',
-                        color: theme.primaryOrange,
-                        fontSize: '1.1rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        padding: '1rem 2rem',
-                        borderRadius: '12px',
-                        transition: 'all 0.3s ease'
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.15)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = 'rgba(249, 115, 22, 0.1)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      🔑 Forgot your password?
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    marginBottom: '2rem'
-                  }}>
-                    <label style={{
-                      fontSize: '1.1rem',
-                      fontWeight: '700',
-                      color: theme.textColor,
-                      marginBottom: '0.75rem'
-                    }}>Email Address</label>
-                    <input
-                      type="email"
-                      placeholder="careers@preciseanalytics.io"
-                      value={forgotPasswordEmail}
-                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                      disabled={isLoading}
-                      style={{
-                        padding: '1.25rem',
-                        fontSize: '1.1rem',
-                        border: `2px solid rgba(154, 205, 50, 0.3)`,
-                        borderRadius: '12px',
-                        background: 'rgba(248, 250, 252, 0.9)',
-                        color: theme.textColor,
-                        transition: 'border-color 0.3s ease',
-                        outline: 'none'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = theme.primaryGreen}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(154, 205, 50, 0.3)'}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <button
-                      onClick={() => {
-                        setShowForgotPassword(false);
-                        setForgotPasswordEmail('');
-                        setForgotPasswordStatus('');
-                      }}
-                      style={{
-                        flex: 1,
-                        background: 'rgba(156, 163, 175, 0.2)',
-                        color: theme.textLight,
-                        border: '2px solid rgba(156, 163, 175, 0.3)',
-                        padding: '1.25rem',
-                        borderRadius: '12px',
-                        fontSize: '1.1rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      Back to Login
-                    </button>
-                    
-                    <button
-                      onClick={handleForgotPassword}
-                      disabled={isLoading}
-                      style={{
-                        flex: 1,
-                        background: theme.orangeGradient,
-                        color: 'white',
-                        border: 'none',
-                        padding: '1.25rem',
-                        borderRadius: '12px',
-                        fontSize: '1.1rem',
-                        fontWeight: '700',
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.3s ease',
-                        boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
-                        opacity: isLoading ? 0.7 : 1
-                      }}
-                      onMouseOver={(e) => {
-                        if (!isLoading) {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 8px 25px rgba(249, 115, 22, 0.4)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (!isLoading) {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 15px rgba(249, 115, 22, 0.3)';
-                        }
-                      }}
-                    >
-                      {isLoading ? 'Sending...' : 'Send Reset Link'}
-                    </button>
-                  </div>
-                </>
-              )}
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Enter your password"
+              />
             </div>
 
-            <div style={{
-              textAlign: 'center',
-              fontSize: '0.95rem',
-              color: theme.textLight,
-              fontWeight: '500'
-            }}>
-              Authorized HR personnel only
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-green-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Signing In...
+                </div>
+              ) : (
+                <div className="flex items-center justify-center">
+                  <Lock className="w-4 h-4 mr-2" />
+                  Sign In to ATS
+                </div>
+              )}
+            </button>
+
+            <div className="text-center">
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Forgot your password?
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8">
+          <p className="text-sm text-gray-500">
+            © 2025 Precise Analytics. All rights reserved.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Minority-Owned • Veteran-Owned • SDVOSB Certified
+          </p>
+        </div>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reset Password</h3>
+            <p className="text-gray-600 mb-6">
+              Click the button below to send a password reset request to the administrator.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleForgotPassword}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Send Reset Request
+              </button>
+              <button
+                onClick={() => setShowForgotPassword(false)}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
+};
+
+const MainDashboard = ({ onNavigate }: NavigationProps) => {
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [filteredApplications, setFilteredApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [showAlert, setShowAlert] = useState<Alert>(null);
+
+  // Status counts based on new categories
+  const getStatusCounts = () => {
+    const counts: Record<string, number> = {
+      new_applications: 0,
+      first_interview: 0,
+      second_interview: 0,
+      onboarding: 0,
+      not_hired: 0,
+      withdrawn: 0
+    };
+
+    applications.forEach((app: Application) => {
+      const normalizedStatus = normalizeStatus(app.status);
+      
+      Object.keys(STATUS_CATEGORIES).forEach(category => {
+        if (STATUS_CATEGORIES[category].includes(normalizedStatus)) {
+          counts[category]++;
+        }
+      });
+    });
+
+    return counts;
+  };
+
+  const statusCounts = getStatusCounts();
+
+  const tabs = [
+    { 
+      id: 'all', 
+      label: 'All Applications', 
+      icon: Users, 
+      count: applications.length,
+      color: 'bg-blue-100 text-blue-700 border-blue-200'
+    },
+    { 
+      id: 'new_applications', 
+      label: 'New Applications', 
+      icon: FileText, 
+      count: statusCounts.new_applications,
+      color: 'bg-green-100 text-green-700 border-green-200'
+    },
+    { 
+      id: 'first_interview', 
+      label: '1st Interview', 
+      icon: Users, 
+      count: statusCounts.first_interview,
+      color: 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    },
+    { 
+      id: 'second_interview', 
+      label: '2nd Interview', 
+      icon: Users, 
+      count: statusCounts.second_interview,
+      color: 'bg-orange-100 text-orange-700 border-orange-200'
+    },
+    { 
+      id: 'onboarding', 
+      label: 'Onboarding', 
+      icon: CheckCircle, 
+      count: statusCounts.onboarding,
+      color: 'bg-blue-100 text-blue-700 border-blue-200'
+    },
+    { 
+      id: 'not_hired', 
+      label: 'Not Hired', 
+      icon: XCircle, 
+      count: statusCounts.not_hired,
+      color: 'bg-red-100 text-red-700 border-red-200'
+    },
+    { 
+      id: 'withdrawn', 
+      label: 'Withdrawn', 
+      icon: AlertCircle, 
+      count: statusCounts.withdrawn,
+      color: 'bg-gray-100 text-gray-700 border-gray-200'
+    }
+  ];
+
+  useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  useEffect(() => {
+    filterApplications();
+  }, [searchTerm, activeTab, applications]);
+
+  const fetchApplications = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching applications...');
+      
+      const response = await fetch('/api/applications');
+      const data = await response.json();
+      
+      if (data.success) {
+        setApplications(data.applications);
+        console.log('Applications fetched successfully:', data.applications.length);
+      } else {
+        throw new Error(data.error || 'Failed to fetch applications');
+      }
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      setShowAlert({ type: 'error', message: 'Failed to load applications. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterApplications = () => {
+    let filtered = applications;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter((app: Application) =>
+        `${app.first_name} ${app.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.job_title?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by active tab
+    if (activeTab !== 'all') {
+      const statusesForTab = STATUS_CATEGORIES[activeTab] || [];
+      filtered = filtered.filter((app: Application) => 
+        statusesForTab.includes(normalizeStatus(app.status))
+      );
+    }
+
+    setFilteredApplications(filtered);
+  };
+
+  const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
+    setIsUpdating(applicationId);
+    
+    try {
+      console.log('Updating application:', applicationId, 'to status:', newStatus);
+      
+      const response = await fetch(`/api/applications/${applicationId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh applications to get updated counts
+        await fetchApplications();
+        setShowAlert({ type: 'success', message: 'Status updated successfully!' });
+        
+        // Close modal
+        setSelectedCandidate(null);
+      } else {
+        throw new Error(result.error || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setShowAlert({ 
+        type: 'error', 
+        message: `Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleView = (application: Application) => {
+    setSelectedCandidate(application);
+  };
+
+  const handleContact = (application: Application) => {
+    const subject = `RE: Your Application for ${application.job_title || 'Position'} at Precise Analytics`;
+    const body = `Dear ${application.first_name} ${application.last_name},\n\nThank you for your interest in joining Precise Analytics.\n\nBest regards,\nPrecise Analytics HR Team`;
+    const mailtoLink = `mailto:${application.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+  };
+
+  const handleLogout = () => {
+    console.log('Logging out...');
+    localStorage.removeItem('ats_auth');
+    onNavigate('login');
+  };
+
+  const getStatusDisplayName = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'applied': 'Applied',
+      'first_interview': '1st Interview',
+      'second_interview': '2nd Interview',
+      'onboarding': 'Onboarding',
+      'not_hired': 'Not Hired',
+      'withdrawn': 'Withdrawn'
+    };
+    return statusMap[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
+      'applied': 'bg-green-100 text-green-800',
+      'first_interview': 'bg-yellow-100 text-yellow-800',
+      'second_interview': 'bg-orange-100 text-orange-800',
+      'onboarding': 'bg-blue-100 text-blue-800',
+      'not_hired': 'bg-red-100 text-red-800',
+      'withdrawn': 'bg-gray-100 text-gray-800'
+    };
+    return colorMap[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Auto-hide alerts after 5 seconds
+  useEffect(() => {
+    if (showAlert) {
+      const timer = setTimeout(() => setShowAlert(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showAlert]);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <PreciseAnalyticsLogo clickable onClick={() => onNavigate('dashboard')} />
+            
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2 text-sm">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">VOSB</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">SDVOSB</span>
+                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">MBE</span>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => onNavigate('jobs')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Building className="w-4 h-4" />
+                  <span>Manage Jobs</span>
+                </button>
+                
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Alert */}
+      {showAlert && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          showAlert.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          'bg-red-100 text-red-800 border border-red-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span>{showAlert.message}</span>
+            <button onClick={() => setShowAlert(null)} className="ml-4 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-all ${
+                  activeTab === tab.id
+                    ? tab.color + ' shadow-sm'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="font-medium">{tab.label}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === tab.id ? 'bg-white/30' : 'bg-gray-100'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search candidates..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Applications Table */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredApplications.map((application: Application) => (
+                    <tr key={application.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{application.first_name} {application.last_name}</div>
+                          <div className="text-sm text-gray-500">{application.email}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{application.job_title || 'Position Not Listed'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(normalizeStatus(application.status))}`}>
+                          {getStatusDisplayName(normalizeStatus(application.status))}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(application.applied_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => handleView(application)}
+                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleContact(application)}
+                          className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                        >
+                          <Mail className="w-4 h-4 mr-1" />
+                          Contact
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {filteredApplications.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No applications found</p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Candidate Detail Modal */}
+      {selectedCandidate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedCandidate.first_name} {selectedCandidate.last_name}</h2>
+                  <p className="text-gray-600">{selectedCandidate.job_title || 'Position Not Listed'}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedCandidate(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Contact Information */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Contact Information</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm">{selectedCandidate.email}</span>
+                    </div>
+                    {selectedCandidate.phone && (
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm">{selectedCandidate.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm">Applied: {new Date(selectedCandidate.applied_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Application Documents</h3>
+                  <div className="space-y-2">
+                    {selectedCandidate.resume_url && (
+                      <a
+                        href={selectedCandidate.resume_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="text-sm">Resume</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {selectedCandidate.cover_letter_url && (
+                      <a
+                        href={selectedCandidate.cover_letter_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="text-sm">Cover Letter</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {selectedCandidate.portfolio_url && (
+                      <a
+                        href={selectedCandidate.portfolio_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <Globe className="w-4 h-4" />
+                        <span className="text-sm">Portfolio</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {selectedCandidate.linkedin_url && (
+                      <a
+                        href={selectedCandidate.linkedin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <Linkedin className="w-4 h-4" />
+                        <span className="text-sm">LinkedIn Profile</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Update Status */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Update Application Status</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { value: 'applied', label: 'Applied', color: 'bg-green-100 hover:bg-green-200 text-green-800' },
+                    { value: 'first_interview', label: '1st Interview', color: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800' },
+                    { value: 'second_interview', label: '2nd Interview', color: 'bg-orange-100 hover:bg-orange-200 text-orange-800' },
+                    { value: 'background_check', label: 'Background Check', color: 'bg-blue-100 hover:bg-blue-200 text-blue-800' },
+                    { value: 'hired', label: 'Hired', color: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' },
+                    { value: 'not_hired', label: 'Not Hired', color: 'bg-red-100 hover:bg-red-200 text-red-800' },
+                    { value: 'withdrawn', label: 'Withdrawn', color: 'bg-gray-100 hover:bg-gray-200 text-gray-800' }
+                  ].map((status) => (
+                    <button
+                      key={status.value}
+                      onClick={() => updateApplicationStatus(selectedCandidate.id, status.value)}
+                      disabled={isUpdating === selectedCandidate.id}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors ${status.color} ${
+                        isUpdating === selectedCandidate.id ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      {isUpdating === selectedCandidate.id ? 'Updating...' : status.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              {selectedCandidate.notes && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Notes</h3>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700">{selectedCandidate.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const JobManagementPage = ({ onNavigate }: NavigationProps) => {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState<any>(null);
+  const [showAlert, setShowAlert] = useState<Alert>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    department: '',
+    location: '',
+    employment_type: 'full_time',
+    salary_range: '',
+    description: '',
+    requirements: '',
+    posted: true
+  });
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/jobs');
+      const data = await response.json();
+      
+      if (data.success) {
+        setJobs(data.jobs);
+      } else {
+        throw new Error(data.error || 'Failed to fetch jobs');
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      setShowAlert({ type: 'error', message: 'Failed to load jobs. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
+      const method = editingJob ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchJobs();
+        setShowJobForm(false);
+        setEditingJob(null);
+        setFormData({
+          title: '',
+          department: '',
+          location: '',
+          employment_type: 'full_time',
+          salary_range: '',
+          description: '',
+          requirements: '',
+          posted: true
+        });
+        setShowAlert({ 
+          type: 'success', 
+          message: editingJob ? 'Job updated successfully!' : 'Job created successfully!' 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to save job');
+      }
+    } catch (error) {
+      console.error('Error saving job:', error);
+      setShowAlert({ type: 'error', message: `Failed to save job: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  };
+
+  const handleEdit = (job: any) => {
+    setEditingJob(job);
+    setFormData({
+      title: job.title || '',
+      department: job.department || '',
+      location: job.location || '',
+      employment_type: job.employment_type || 'full_time',
+      salary_range: job.salary_range || '',
+      description: job.description || '',
+      requirements: job.requirements || '',
+      posted: job.posted ?? true
+    });
+    setShowJobForm(true);
+  };
+
+  const handleDelete = async (jobId: string) => {
+    if (!confirm('Are you sure you want to delete this job posting?')) return;
+    
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchJobs();
+        setShowAlert({ type: 'success', message: 'Job deleted successfully!' });
+      } else {
+        throw new Error(result.error || 'Failed to delete job');
+      }
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      setShowAlert({ type: 'error', message: `Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  };
+
+  const toggleJobStatus = async (jobId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ posted: !currentStatus }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchJobs();
+        setShowAlert({ 
+          type: 'success', 
+          message: `Job ${!currentStatus ? 'published' : 'unpublished'} successfully!` 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to update job status');
+      }
+    } catch (error) {
+      console.error('Error updating job status:', error);
+      setShowAlert({ type: 'error', message: `Failed to update job status: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  };
+
+  // Auto-hide alerts after 5 seconds
+  useEffect(() => {
+    if (showAlert) {
+      const timer = setTimeout(() => setShowAlert(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showAlert]);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <PreciseAnalyticsLogo clickable onClick={() => onNavigate('dashboard')} />
+              <span className="text-lg font-semibold text-gray-700">Job Management</span>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Dashboard</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  localStorage.removeItem('ats_auth');
+                  onNavigate('login');
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Alert */}
+      {showAlert && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          showAlert.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          'bg-red-100 text-red-800 border border-red-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span>{showAlert.message}</span>
+            <button onClick={() => setShowAlert(null)} className="ml-4 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Manage Job Postings</h1>
+          <button
+            onClick={() => {
+              setEditingJob(null);
+              setFormData({
+                title: '',
+                department: '',
+                location: '',
+                employment_type: 'full_time',
+                salary_range: '',
+                description: '',
+                requirements: '',
+                posted: true
+              });
+              setShowJobForm(true);
+            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create New Job</span>
+          </button>
+        </div>
+
+        {/* Jobs List */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {jobs.map((job) => (
+                    <tr key={job.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{job.title}</div>
+                          <div className="text-sm text-gray-500">{job.salary_range}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {job.department}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {job.location}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {job.employment_type?.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          job.posted 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {job.posted ? 'Published' : 'Draft'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => handleEdit(job)}
+                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4 mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleJobStatus(job.id, job.posted)}
+                          className={`inline-flex items-center px-3 py-1 rounded-lg transition-colors ${
+                            job.posted 
+                              ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                        >
+                          {job.posted ? 'Unpublish' : 'Publish'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(job.id)}
+                          className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {jobs.length === 0 && (
+              <div className="text-center py-12">
+                <Building className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No job postings found</p>
+                <button
+                  onClick={() => setShowJobForm(true)}
+                  className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Create your first job posting
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Job Form Modal */}
+      {showJobForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-start">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editingJob ? 'Edit Job Posting' : 'Create New Job Posting'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowJobForm(false);
+                    setEditingJob(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Title *
+                  </label>
+                  <input
+                    id="title"
+                    name="title"
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Senior Data Analyst"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
+                    Department *
+                  </label>
+                  <input
+                    id="department"
+                    name="department"
+                    type="text"
+                    required
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Data Analytics"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                    Location *
+                  </label>
+                  <input
+                    id="location"
+                    name="location"
+                    type="text"
+                    required
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Richmond, VA / Remote"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="employment_type" className="block text-sm font-medium text-gray-700 mb-2">
+                    Employment Type *
+                  </label>
+                  <select
+                    id="employment_type"
+                    name="employment_type"
+                    required
+                    value={formData.employment_type}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                    <option value="contract">Contract</option>
+                    <option value="internship">Internship</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="salary_range" className="block text-sm font-medium text-gray-700 mb-2">
+                    Salary Range
+                  </label>
+                  <input
+                    id="salary_range"
+                    name="salary_range"
+                    type="text"
+                    value={formData.salary_range}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., $70,000 - $90,000"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Description *
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    required
+                    rows={4}
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Describe the role, responsibilities, and what the candidate will be doing..."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-2">
+                    Requirements *
+                  </label>
+                  <textarea
+                    id="requirements"
+                    name="requirements"
+                    required
+                    rows={4}
+                    value={formData.requirements}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="List the qualifications, skills, and experience required..."
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center">
+                    <input
+                      id="posted"
+                      name="posted"
+                      type="checkbox"
+                      checked={formData.posted}
+                      onChange={(e) => setFormData({ ...formData, posted: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="posted" className="ml-2 block text-sm text-gray-900">
+                      Publish immediately to careers page
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowJobForm(false);
+                    setEditingJob(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  {editingJob ? 'Update Job' : 'Create Job'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Main App Component
+export default function App() {
+  const [currentPage, setCurrentPage] = useState('login');
+
+  // Check authentication on load
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem('ats_auth') === 'true';
+    if (isAuthenticated) {
+      setCurrentPage('dashboard');
+    }
+  }, []);
+
+  const handleNavigation = (page: string) => {
+    setCurrentPage(page);
+  };
+
+  if (currentPage === 'login') {
+    return <LoginPage onNavigate={handleNavigation} />;
+  }
+
+  if (currentPage === 'jobs') {
+    return <JobManagementPage onNavigate={handleNavigation} />;
+  }
+
+  return <MainDashboard onNavigate={handleNavigation} />;
 }
