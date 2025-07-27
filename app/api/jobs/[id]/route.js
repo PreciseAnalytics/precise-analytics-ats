@@ -8,12 +8,16 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     
     console.log(`🔄 Updating job ${id}:`, body);
+    console.log('Request body keys:', Object.keys(body));
     
-    // Handle status toggle (publish/unpublish)
-    if (body.posted !== undefined) {
+    // Handle status toggle (publish/unpublish) - from publish button
+    if (body.posted !== undefined && Object.keys(body).length === 1) {
+      console.log('📌 Status toggle request');
+      
       const result = await sql`
         UPDATE jobs 
-        SET status = ${body.posted ? 'published' : 'draft'}, updated_at = NOW()
+        SET status = ${body.posted ? 'published' : 'draft'}, 
+            updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
       `;
@@ -35,17 +39,27 @@ export async function PUT(request, { params }) {
     
     // Handle full job update (from edit form)
     else {
+      console.log('📝 Full job update request');
+      
+      // Validate required fields
+      if (!body.title || !body.department) {
+        return Response.json({
+          success: false,
+          error: 'Title and department are required'
+        }, { status: 400 });
+      }
+
       const result = await sql`
         UPDATE jobs SET
           title = ${body.title},
           department = ${body.department},
-          location = ${body.location},
-          type = ${body.employment_type || body.type},
-          salary_range = ${body.salary_range},
-          description = ${body.description},
-          requirements = ${body.requirements},
+          location = ${body.location || ''},
+          type = ${body.employment_type || body.type || 'Full-time'},
+          salary_range = ${body.salary_range || ''},
+          description = ${body.description || ''},
+          requirements = ${body.requirements || ''},
           benefits = ${body.benefits || ''},
-          status = ${body.posted ? 'published' : 'draft'},
+          status = ${body.status || 'draft'},
           updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
@@ -58,11 +72,12 @@ export async function PUT(request, { params }) {
         }, { status: 404 });
       }
 
-      console.log('✅ Job updated:', result[0]);
+      console.log('✅ Job updated successfully:', result[0]);
 
       return Response.json({
         success: true,
-        job: result[0]
+        job: result[0],
+        message: 'Job updated successfully'
       });
     }
   } catch (error) {
@@ -71,7 +86,8 @@ export async function PUT(request, { params }) {
     return Response.json({
       success: false,
       error: 'Failed to update job',
-      details: error.message
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 });
   }
 }
@@ -84,7 +100,7 @@ export async function DELETE(request, { params }) {
     const result = await sql`
       DELETE FROM jobs 
       WHERE id = ${id}
-      RETURNING id
+      RETURNING id, title
     `;
 
     if (result.length === 0) {
@@ -98,7 +114,8 @@ export async function DELETE(request, { params }) {
 
     return Response.json({
       success: true,
-      message: 'Job deleted successfully'
+      message: 'Job deleted successfully',
+      job: result[0]
     });
   } catch (error) {
     console.error('❌ Job deletion error:', error);
@@ -111,9 +128,45 @@ export async function DELETE(request, { params }) {
   }
 }
 
+export async function GET(request, { params }) {
+  try {
+    const { id } = params;
+    console.log(`📖 Fetching job ${id}`);
+    
+    const result = await sql`
+      SELECT * FROM jobs 
+      WHERE id = ${id}
+    `;
+
+    if (result.length === 0) {
+      return Response.json({
+        success: false,
+        error: 'Job not found'
+      }, { status: 404 });
+    }
+
+    return Response.json({
+      success: true,
+      job: result[0]
+    });
+  } catch (error) {
+    console.error('❌ Job fetch error:', error);
+    
+    return Response.json({
+      success: false,
+      error: 'Failed to fetch job',
+      details: error.message
+    }, { status: 500 });
+  }
+}
+
 export async function OPTIONS() {
-  const response = new Response(null, { status: 200 });
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'PUT, DELETE, OPTIONS');
-  return response;
+  return new Response(null, { 
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+  });
 }

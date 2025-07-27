@@ -810,6 +810,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<any>(null);
   const [showAlert, setShowAlert] = useState<Alert>(null);
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     department: '',
@@ -828,46 +829,92 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/jobs');
+      console.log('🔄 Fetching jobs...');
+      
+      const response = await fetch('/api/jobs?' + new Date().getTime(), {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
       const data = await response.json();
       
       if (data.success) {
         setJobs(data.jobs);
+        console.log(`✅ Fetched ${data.jobs.length} jobs`);
       } else {
         throw new Error(data.error || 'Failed to fetch jobs');
       }
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      console.error('❌ Error fetching jobs:', error);
       setShowAlert({ type: 'error', message: 'Failed to load jobs. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Fixed handleInputChange - updates the right state based on editing vs creating
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+
+    if (editingJob) {
+      // When editing, update editingJob state
+      setEditingJob({
+        ...editingJob,
+        [name]: newValue
+      });
+    } else {
+      // When creating new, update formData state
+      setFormData({
+        ...formData,
+        [name]: newValue
+      });
+    }
   };
 
+  // Fixed handleSubmit - uses correct data source and proper API calls
   const handleSubmit = async () => {
     try {
+      setIsSubmittingJob(true);
+      
+      // Use the right data source
+      const dataToSend = editingJob ? {
+        title: editingJob.title,
+        department: editingJob.department,
+        location: editingJob.location,
+        employment_type: editingJob.employment_type || editingJob.type,
+        salary_range: editingJob.salary_range,
+        description: editingJob.description,
+        requirements: editingJob.requirements,
+        benefits: editingJob.benefits || '',
+        status: editingJob.posted ? 'published' : 'draft'
+      } : formData;
+
       const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
       const method = editingJob ? 'PUT' : 'POST';
       
+      console.log(`🔄 ${editingJob ? 'Updating' : 'Creating'} job:`, dataToSend);
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       });
 
       const result = await response.json();
+      console.log('📝 Job API response:', result);
       
       if (result.success) {
+        // Refresh jobs list to get latest data
         await fetchJobs();
+        
+        // Close form and reset state
         setShowJobForm(false);
         setEditingJob(null);
         setFormData({
@@ -880,31 +927,43 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
           requirements: '',
           posted: true
         });
+        
         setShowAlert({ 
           type: 'success', 
           message: editingJob ? 'Job updated successfully!' : 'Job created successfully!' 
         });
+        
+        console.log(`✅ Job ${editingJob ? 'updated' : 'created'} successfully`);
       } else {
         throw new Error(result.error || 'Failed to save job');
       }
     } catch (error) {
-      console.error('Error saving job:', error);
+      console.error('❌ Error saving job:', error);
       setShowAlert({ type: 'error', message: `Failed to save job: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    } finally {
+      setIsSubmittingJob(false);
     }
   };
 
+  // Fixed handleEdit - properly sets up editing state
   const handleEdit = (job: any) => {
-    setEditingJob(job);
-    setFormData({
+    console.log('📝 Editing job:', job);
+    
+    setEditingJob({
+      ...job,
+      // Ensure all required fields are present
       title: job.title || '',
       department: job.department || '',
       location: job.location || '',
-      employment_type: job.employment_type || 'full_time',
+      employment_type: job.employment_type || job.type || 'full_time',
       salary_range: job.salary_range || '',
       description: job.description || '',
       requirements: job.requirements || '',
-      posted: job.posted ?? true
+      benefits: job.benefits || '',
+      posted: job.status === 'published' || job.posted === true
     });
+    
+    // Don't set formData when editing - we'll use editingJob
     setShowJobForm(true);
   };
 
@@ -930,8 +989,11 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     }
   };
 
+  // Enhanced toggleJobStatus with better error handling
   const toggleJobStatus = async (jobId: string, currentStatus: boolean) => {
     try {
+      console.log(`🔄 Toggling job ${jobId} status from ${currentStatus} to ${!currentStatus}`);
+      
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'PUT',
         headers: {
@@ -941,18 +1003,21 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       });
 
       const result = await response.json();
+      console.log('📌 Toggle status response:', result);
       
       if (result.success) {
+        // Refresh jobs list to ensure we have latest data
         await fetchJobs();
         setShowAlert({ 
           type: 'success', 
           message: `Job ${!currentStatus ? 'published' : 'unpublished'} successfully!` 
         });
+        console.log(`✅ Job ${jobId} ${!currentStatus ? 'published' : 'unpublished'}`);
       } else {
         throw new Error(result.error || 'Failed to update job status');
       }
     } catch (error) {
-      console.error('Error updating job status:', error);
+      console.error('❌ Error updating job status:', error);
       setShowAlert({ type: 'error', message: `Failed to update job status: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
   };
@@ -964,6 +1029,11 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       return () => clearTimeout(timer);
     }
   }, [showAlert]);
+
+  // Helper function to get the right value source
+  const getFieldValue = (fieldName: string) => {
+    return editingJob ? editingJob[fieldName] : formData[fieldName];
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1169,7 +1239,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     name="title"
                     type="text"
                     required
-                    value={formData.title}
+                    value={getFieldValue('title') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Senior Data Analyst"
@@ -1185,7 +1255,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     name="department"
                     type="text"
                     required
-                    value={formData.department}
+                    value={getFieldValue('department') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Data Analytics"
@@ -1201,7 +1271,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     name="location"
                     type="text"
                     required
-                    value={formData.location}
+                    value={getFieldValue('location') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Richmond, VA / Remote"
@@ -1216,7 +1286,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     id="employment_type"
                     name="employment_type"
                     required
-                    value={formData.employment_type}
+                    value={getFieldValue('employment_type') || 'full_time'}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
@@ -1235,7 +1305,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     id="salary_range"
                     name="salary_range"
                     type="text"
-                    value={formData.salary_range}
+                    value={getFieldValue('salary_range') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., $70,000 - $90,000"
@@ -1251,7 +1321,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     name="description"
                     required
                     rows={4}
-                    value={formData.description}
+                    value={getFieldValue('description') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Describe the role, responsibilities, and what the candidate will be doing..."
@@ -1267,7 +1337,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     name="requirements"
                     required
                     rows={4}
-                    value={formData.requirements}
+                    value={getFieldValue('requirements') || ''}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="List the qualifications, skills, and experience required..."
@@ -1280,8 +1350,8 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                       id="posted"
                       name="posted"
                       type="checkbox"
-                      checked={formData.posted}
-                      onChange={(e) => setFormData({ ...formData, posted: e.target.checked })}
+                      checked={getFieldValue('posted') || false}
+                      onChange={handleInputChange}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="posted" className="ml-2 block text-sm text-gray-900">
@@ -1303,9 +1373,17 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={isSubmittingJob}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingJob ? 'Update Job' : 'Create Job'}
+                  {isSubmittingJob ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingJob ? 'Updating...' : 'Creating...'}
+                    </div>
+                  ) : (
+                    editingJob ? 'Update Job' : 'Create Job'
+                  )}
                 </button>
               </div>
             </div>
