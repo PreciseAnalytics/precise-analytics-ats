@@ -1,3 +1,4 @@
+// pages/api/applications/[id].js
 import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
@@ -107,7 +108,7 @@ async function handleGet(req, res, applicationId) {
   }
 }
 
-// PUT - Update application status (SIMPLIFIED AND BULLETPROOF)
+// PUT - Update application status
 async function handlePut(req, res, applicationId) {
   try {
     console.log('PUT request body:', req.body);
@@ -161,7 +162,7 @@ async function handlePut(req, res, applicationId) {
     const oldStatus = existingApp[0].status;
     console.log('Current status:', oldStatus, '-> New status:', status);
 
-    // SIMPLIFIED: Direct update with minimal complexity
+    // Update application
     let updatedApplication;
     
     if (status && notes) {
