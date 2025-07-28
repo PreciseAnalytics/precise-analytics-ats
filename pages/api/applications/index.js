@@ -35,6 +35,8 @@ export default async function handler(req, res) {
 }
 
 // GET - Fetch all applications (Fixed to match actual database schema)
+
+// GET - Fetch all applications (Fixed date handling)
 async function handleGet(req, res) {
   try {
     console.log('🔍 Fetching applications from database...');
@@ -48,23 +50,37 @@ async function handleGet(req, res) {
         email,
         position_applied as position,
         status,
-        applied_at as created_at,
+        applied_at,
+        application_date,
+        updated_at,
         phone,
         resume_url,
         cover_letter_url,
         linkedin_url,
         portfolio_url,
         years_experience,
-        source
+        source,
+        notes
       FROM applications 
       ORDER BY applied_at DESC
     `;
+
+    // Process applications to ensure proper date formatting
+    const processedApplications = applications.map(app => ({
+      ...app,
+      // Ensure dates are properly formatted
+      applied_at: app.applied_at ? new Date(app.applied_at).toISOString() : null,
+      application_date: app.application_date ? new Date(app.application_date).toISOString() : null,
+      updated_at: app.updated_at ? new Date(app.updated_at).toISOString() : null,
+      // Add created_at alias for compatibility
+      created_at: app.applied_at ? new Date(app.applied_at).toISOString() : null
+    }));
 
     console.log(`✅ Found ${applications.length} applications`);
 
     return res.status(200).json({
       success: true,
-      applications: applications
+      applications: processedApplications
     });
   } catch (error) {
     console.error('❌ Database error:', error);
