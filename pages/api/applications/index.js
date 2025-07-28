@@ -34,35 +34,37 @@ export default async function handler(req, res) {
   }
 }
 
-// GET - Fetch all applications (Fixed to match actual database schema)
-
-// GET - Fetch all applications (Fixed date handling)
+// GET - Fetch all applications (Fixed date handling and job titles)
 async function handleGet(req, res) {
   try {
     console.log('🔍 Fetching applications from database...');
     
     const applications = await sql`
       SELECT 
-        id,
-        CONCAT(first_name, ' ', last_name) as full_name,
-        first_name,
-        last_name,
-        email,
-        position_applied as position,
-        status,
-        applied_at,
-        application_date,
-        updated_at,
-        phone,
-        resume_url,
-        cover_letter_url,
-        linkedin_url,
-        portfolio_url,
-        years_experience,
-        source,
-        notes
-      FROM applications 
-      ORDER BY applied_at DESC
+        a.id,
+        CONCAT(a.first_name, ' ', a.last_name) as full_name,
+        a.first_name,
+        a.last_name,
+        a.email,
+        COALESCE(j.title, a.position_applied, 'Position Not Listed') as position,
+        a.status,
+        a.applied_at,
+        a.application_date,
+        a.updated_at,
+        a.phone,
+        a.resume_url,
+        a.cover_letter_url,
+        a.linkedin_url,
+        a.portfolio_url,
+        a.years_experience,
+        a.source,
+        a.notes,
+        a.job_id,
+        j.title as job_title,
+        j.department
+      FROM applications a
+      LEFT JOIN jobs j ON a.job_id = j.id
+      ORDER BY a.applied_at DESC
     `;
 
     // Process applications to ensure proper date formatting
@@ -73,7 +75,9 @@ async function handleGet(req, res) {
       application_date: app.application_date ? new Date(app.application_date).toISOString() : null,
       updated_at: app.updated_at ? new Date(app.updated_at).toISOString() : null,
       // Add created_at alias for compatibility
-      created_at: app.applied_at ? new Date(app.applied_at).toISOString() : null
+      created_at: app.applied_at ? new Date(app.applied_at).toISOString() : null,
+      // Ensure position is never null
+      position: app.position || 'Position Not Listed'
     }));
 
     console.log(`✅ Found ${applications.length} applications`);
