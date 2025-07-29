@@ -1,9 +1,26 @@
+// app/api/auth/reset-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL!);
+
+// ADDED: CORS headers with specific origin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+// ADDED: Handle preflight OPTIONS request
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +29,10 @@ export async function POST(request: NextRequest) {
     if (!token || !password) {
       return NextResponse.json(
         { error: 'Token and password are required' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -20,14 +40,20 @@ export async function POST(request: NextRequest) {
     if (password.length < 8) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters long' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
     if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
       return NextResponse.json(
         { error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -38,7 +64,10 @@ export async function POST(request: NextRequest) {
     } catch (jwtError) {
       return NextResponse.json(
         { error: 'Invalid or expired token' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -46,7 +75,10 @@ export async function POST(request: NextRequest) {
     if (decoded.type !== 'password_reset') {
       return NextResponse.json(
         { error: 'Invalid token type' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -57,7 +89,10 @@ export async function POST(request: NextRequest) {
     if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
       return NextResponse.json(
         { error: 'Unauthorized email address' },
-        { status: 403 }
+        { 
+          status: 403,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -88,14 +123,20 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { message: 'Password has been successfully reset' },
-        { status: 200 }
+        { 
+          status: 200,
+          headers: corsHeaders
+        }
       );
 
     } catch (dbError) {
       console.error('Database error during password reset:', dbError);
       return NextResponse.json(
         { error: 'Failed to update password. Please try again.' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -103,7 +144,10 @@ export async function POST(request: NextRequest) {
     console.error('Password reset error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }

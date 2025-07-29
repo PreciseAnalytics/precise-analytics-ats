@@ -1,10 +1,25 @@
 // app/api/auth/forgot-password/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import jwt from 'jsonwebtoken';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ADDED: CORS headers with specific origin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+// ADDED: Handle preflight OPTIONS request
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +28,10 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json(
         { error: 'Email is required' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -22,7 +40,10 @@ export async function POST(request: NextRequest) {
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -32,7 +53,10 @@ export async function POST(request: NextRequest) {
       // Return success message anyway to prevent email enumeration
       return NextResponse.json(
         { message: 'If this email exists in our system, you will receive reset instructions.' },
-        { status: 200 }
+        { 
+          status: 200,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -123,14 +147,20 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { message: 'Password reset instructions have been sent to your email.' },
-        { status: 200 }
+        { 
+          status: 200,
+          headers: corsHeaders
+        }
       );
 
     } catch (emailError) {
       console.error('Email sending failed:', emailError);
       return NextResponse.json(
         { error: 'Failed to send reset email. Please try again later.' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -138,7 +168,10 @@ export async function POST(request: NextRequest) {
     console.error('Forgot password error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }
