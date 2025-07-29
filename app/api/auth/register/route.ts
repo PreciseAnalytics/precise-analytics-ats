@@ -1,4 +1,6 @@
+// REPLACE your register/route.ts with this CORS-fixed version:
 // app/api/auth/register/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
@@ -12,12 +14,12 @@ const pool = new Pool({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 
-// CORS headers
+// FIXED: CORS headers with specific origin instead of wildcard
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://preciseanalytics.io', // CHANGED: No more wildcard!
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Credentials': 'true', // ADDED: Required for credentials
 };
 
 // Handle preflight OPTIONS request
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
         error: 'All fields are required'
       }, {
         status: 400,
-        headers: corsHeaders
+        headers: corsHeaders // FIXED: Use proper CORS headers
       });
     }
 
@@ -162,7 +164,7 @@ export async function POST(request: NextRequest) {
       message: 'Account created successfully'
     }, {
       status: 201,
-      headers: corsHeaders
+      headers: corsHeaders // FIXED: Use proper CORS headers
     });
 
     // Set HTTP-only cookie
@@ -176,11 +178,9 @@ export async function POST(request: NextRequest) {
 
     // Optional: Send welcome email
     try {
-      // You can implement welcome email here if you have email service set up
       console.log('📧 Welcome email would be sent to:', email);
     } catch (emailError) {
       console.warn('📧 Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
     }
 
     return response;
