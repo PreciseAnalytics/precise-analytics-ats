@@ -1,4 +1,6 @@
 // app/api/auth/login/route.ts
+// REPLACE with this enhanced debug version
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
@@ -12,7 +14,6 @@ const pool = new Pool({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 
-// FIXED: CORS headers with specific origin instead of wildcard
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -20,7 +21,6 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 };
 
-// Handle preflight OPTIONS request
 export async function OPTIONS() {
   return new Response(null, {
     status: 200,
@@ -28,8 +28,9 @@ export async function OPTIONS() {
   });
 }
 
-// LOGIN (POST)
 export async function POST(request: NextRequest) {
+  let client;
+  
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password) {
+      console.log('❌ Missing email or password');
       return NextResponse.json({
         success: false,
         error: 'Email and password are required'
@@ -47,15 +49,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // For development/demo - allow simple password check
-    // In production, you should hash passwords in the database
+    // Special case for admin account (backwards compatibility)
     if (email === 'careers@preciseanalytics.io') {
-      // Simple password validation for demo
-      // You can set any password you want here
+      console.log('🔧 Admin login attempt');
       const isValidPassword = password === 'admin123' || password === 'careers123' || password.length >= 6;
       
       if (isValidPassword) {
-        // Create user object
         const user = {
           id: '1',
           email: 'careers@preciseanalytics.io',
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
           role: 'admin'
         };
 
-        // Generate JWT token
         const token = jwt.sign(
           { 
             userId: user.id, 
@@ -74,9 +72,8 @@ export async function POST(request: NextRequest) {
           { expiresIn: '7d' }
         );
 
-        console.log('✅ Login successful for:', email);
+        console.log('✅ Admin login successful for:', email);
 
-        // Create response with token in cookie
         const response = NextResponse.json({
           success: true,
           user: user,
@@ -85,7 +82,6 @@ export async function POST(request: NextRequest) {
           headers: corsHeaders
         });
 
-        // Set HTTP-only cookie
         response.cookies.set('auth-token', token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -95,25 +91,176 @@ export async function POST(request: NextRequest) {
         });
 
         return response;
+      } else {
+        console.log('❌ Invalid admin password');
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid email or password'
+        }, {
+          status: 401,
+          headers: corsHeaders
+        });
       }
     }
 
-    // Invalid credentials
-    console.log('❌ Invalid login attempt for:', email);
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid email or password'
+    // Connect to database for applicant accounts
+    console.log('📊 Connecting to database for applicant login...');
+    client = await pool.connect();
+    console.log('✅ Database connected');
+
+    // Check applicant accounts
+    console.log('🔍 Searching for user in applicant_accounts...');
+    const userQuery = `
+      SELECT id, email, password_hash, first_name, last_name, email_verified, is_active 
+      FROM applicant_accounts 
+      WHERE email = $1
+    `;
+    const userResult = await client.query(userQuery, [email.toLowerCase()]);
+
+    console.log('📊 Database search result:', {
+      rowCount: userResult.rows.length,
+      email: email.toLowerCase()
+    });
+
+    if (userResult.rows.length === 0) {
+      console.log('❌ User not found in database');
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid email or password'
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    const user = userResult.rows[0];
+    console.log('👤 User found:', {
+      id: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`,
+      email_verified: user.email_verified,
+      is_active: user.is_active
+    });
+
+    // Check if account is active
+    if (!user.is_active) {
+      console.log('❌ Account is deactivated');
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: 'Your account has been deactivated. Please contact support.'
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Verify password
+    console.log('🔐 Verifying password...');
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, user.password_hash);
+      console.log('🔐 Password verification result:', isValidPassword);
+    } catch (passwordError) {
+      console.error('❌ Password verification error:', passwordError);
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication failed'
+      }, {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+
+    if (!isValidPassword) {
+      console.log('❌ Invalid password for:', email);
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid email or password'
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Check if email is verified
+    if (!user.email_verified) {
+      console.log('❌ Unverified email login attempt:', email);
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: 'Please verify your email address before signing in. Check your inbox for the verification link.',
+        requiresVerification: true
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Create user object for response
+    const userData = {
+      id: user.id.toString(),
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      name: `${user.first_name} ${user.last_name}`,
+      role: 'applicant'
+    };
+
+    // Generate JWT token
+    console.log('🎫 Generating JWT token...');
+    const token = jwt.sign(
+      { 
+        userId: userData.id, 
+        email: userData.email,
+        role: userData.role 
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ Applicant login successful for:', email);
+
+    // Create response with token in cookie
+    const response = NextResponse.json({
+      success: true,
+      user: userData,
+      message: 'Login successful'
     }, {
-      status: 401,
       headers: corsHeaders
     });
 
+    // Set HTTP-only cookie
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/'
+    });
+
+    client.release();
+    return response;
+
   } catch (error: any) {
     console.error('❌ Login error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    if (client) {
+      client.release();
+    }
+    
     return NextResponse.json({
       success: false,
-      error: 'Login failed',
-      details: error.message
+      error: 'Login failed - server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, {
       status: 500,
       headers: corsHeaders
@@ -157,7 +304,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// GET method for compatibility (optional)
 export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: false,
