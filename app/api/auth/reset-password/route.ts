@@ -1,12 +1,17 @@
 // app/api/auth/reset-password/route.ts
+// REPLACE your reset-password route with this version for applicant accounts:
+
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { neon } from '@neondatabase/serverless';
+import { Pool } from 'pg';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
-// ADDED: CORS headers with specific origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -14,7 +19,6 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 };
 
-// ADDED: Handle preflight OPTIONS request
 export async function OPTIONS() {
   return new Response(null, {
     status: 200,
@@ -23,6 +27,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
     const { token, password } = await request.json();
 
@@ -37,19 +43,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate password strength
-    if (password.length < 8) {
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
-      );
-    }
-
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
-      return NextResponse.json(
-        { error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' },
+        { error: 'Password must be at least 6 characters long' },
         { 
           status: 400,
           headers: corsHeaders
@@ -63,7 +59,7 @@ export async function POST(request: NextRequest) {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
     } catch (jwtError) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: 'Invalid or expired reset link. Please request a new password reset.' },
         { 
           status: 400,
           headers: corsHeaders
@@ -74,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Check if token is for password reset
     if (decoded.type !== 'password_reset') {
       return NextResponse.json(
-        { error: 'Invalid token type' },
+        { error: 'Invalid reset link' },
         { 
           status: 400,
           headers: corsHeaders
@@ -83,14 +79,17 @@ export async function POST(request: NextRequest) {
     }
 
     const email = decoded.email;
+    const userId = decoded.userId;
 
-    // Verify this is the allowed admin email
-    const allowedEmail = 'careers@preciseanalytics.io';
-    if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
+    // Verify user exists in applicant_accounts table
+    const userQuery = 'SELECT id, email FROM applicant_accounts WHERE id = $1 AND email = $2';
+    const userResult = await client.query(userQuery, [userId, email]);
+
+    if (userResult.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Unauthorized email address' },
+        { error: 'User not found' },
         { 
-          status: 403,
+          status: 404,
           headers: corsHeaders
         }
       );
@@ -101,28 +100,29 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     try {
-      // First, check if user exists in database
-      const existingUser = await sql`
-        SELECT id FROM users WHERE email = ${email}
+      // Update user's password in applicant_accounts table
+      const updateQuery = `
+        UPDATE applicant_accounts 
+        SET password_hash = $1, updated_at = NOW()
+        WHERE id = $2 AND email = $3
       `;
+      
+      const updateResult = await client.query(updateQuery, [hashedPassword, userId, email]);
 
-      if (existingUser.length === 0) {
-        // Create the user if they don't exist (for initial setup)
-        await sql`
-          INSERT INTO users (email, password, role, created_at)
-          VALUES (${email}, ${hashedPassword}, 'admin', NOW())
-        `;
-      } else {
-        // Update existing user's password
-        await sql`
-          UPDATE users 
-          SET password = ${hashedPassword}, updated_at = NOW()
-          WHERE email = ${email}
-        `;
+      if (updateResult.rowCount === 0) {
+        return NextResponse.json(
+          { error: 'Failed to update password' },
+          { 
+            status: 500,
+            headers: corsHeaders
+          }
+        );
       }
 
+      console.log('✅ Password reset successful for:', email);
+
       return NextResponse.json(
-        { message: 'Password has been successfully reset' },
+        { message: 'Password has been successfully reset. You can now sign in with your new password.' },
         { 
           status: 200,
           headers: corsHeaders
@@ -149,5 +149,7 @@ export async function POST(request: NextRequest) {
         headers: corsHeaders
       }
     );
+  } finally {
+    client.release();
   }
 }
