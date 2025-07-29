@@ -1,5 +1,5 @@
 // app/api/auth/register/route.ts
-// UPDATED version with email verification
+// UPDATED with correct verification link URLs
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
@@ -221,7 +221,8 @@ async function sendVerificationEmail(email: string, firstName: string, token: st
     return;
   }
 
-  const verificationUrl = `https://preciseanalytics.io/verify-email?token=${token}`;
+  // FIXED: Point verification link to ATS, not main website
+  const verificationUrl = `https://precise-analytics-ats.vercel.app/api/auth/verify-email?token=${token}`;
 
   try {
     await resend.emails.send({
@@ -265,6 +266,12 @@ async function sendVerificationEmail(email: string, firstName: string, token: st
             
             <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
               <p style="margin: 0; font-size: 14px; color: #1e40af;">
+                <strong>What happens next:</strong> After verification, you'll be automatically signed in and can start applying for positions at Precise Analytics.
+              </p>
+            </div>
+            
+            <div style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #c53030;">
                 <strong>Security Notice:</strong> This verification link will expire in 24 hours. If you didn't create this account, please ignore this email.
               </p>
             </div>

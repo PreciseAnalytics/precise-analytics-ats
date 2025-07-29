@@ -1,5 +1,5 @@
 // app/api/auth/verify-email/route.ts
-// CREATE this new endpoint for email verification
+// REPLACE your verify-email route with this fixed version
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
@@ -27,6 +27,105 @@ export async function OPTIONS() {
   });
 }
 
+// GET method for handling verification links from email (main entry point)
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token');
+
+  if (!token) {
+    // Redirect to careers page with error
+    return NextResponse.redirect('https://preciseanalytics.io/careers?error=missing_token');
+  }
+
+  const client = await pool.connect();
+  
+  try {
+    // Verify the JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as any;
+    } catch (jwtError) {
+      client.release();
+      return NextResponse.redirect('https://preciseanalytics.io/careers?error=invalid_token');
+    }
+
+    // Check if token is for email verification
+    if (decoded.type !== 'email_verification') {
+      client.release();
+      return NextResponse.redirect('https://preciseanalytics.io/careers?error=invalid_link');
+    }
+
+    const email = decoded.email;
+    const userId = decoded.userId;
+
+    // Check if user exists and get current verification status
+    const userQuery = 'SELECT id, email, email_verified, first_name, last_name FROM applicant_accounts WHERE id = $1 AND email = $2';
+    const userResult = await client.query(userQuery, [userId, email]);
+
+    if (userResult.rows.length === 0) {
+      client.release();
+      return NextResponse.redirect('https://preciseanalytics.io/careers?error=user_not_found');
+    }
+
+    const user = userResult.rows[0];
+
+    // Check if already verified
+    if (user.email_verified) {
+      client.release();
+      return NextResponse.redirect('https://preciseanalytics.io/careers?verified=already');
+    }
+
+    // Update user's email verification status
+    const updateQuery = `
+      UPDATE applicant_accounts 
+      SET email_verified = true, email_verified_at = NOW(), updated_at = NOW()
+      WHERE id = $1 AND email = $2
+    `;
+    
+    const updateResult = await client.query(updateQuery, [userId, email]);
+
+    if (updateResult.rowCount === 0) {
+      client.release();
+      return NextResponse.redirect('https://preciseanalytics.io/careers?error=verification_failed');
+    }
+
+    console.log('✅ Email verification successful for:', email);
+
+    // Generate login JWT token to auto-login the user
+    const loginToken = jwt.sign(
+      { 
+        userId: user.id.toString(), 
+        email: user.email,
+        role: 'applicant' 
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Create redirect response to careers page with success
+    const redirectResponse = NextResponse.redirect('https://preciseanalytics.io/careers?verified=success');
+    
+    // Set HTTP-only cookie to auto-login the user
+    redirectResponse.cookies.set('auth-token', loginToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+      domain: '.preciseanalytics.io' // Allow cookie across subdomains
+    });
+
+    client.release();
+    return redirectResponse;
+
+  } catch (error) {
+    console.error('❌ Email verification error:', error);
+    client.release();
+    return NextResponse.redirect('https://preciseanalytics.io/careers?error=server_error');
+  }
+}
+
+// POST method for API-based verification (optional)
 export async function POST(request: NextRequest) {
   const client = await pool.connect();
   
@@ -146,28 +245,5 @@ export async function POST(request: NextRequest) {
     });
   } finally {
     client.release();
-  }
-}
-
-// GET method for handling verification links from email
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const token = url.searchParams.get('token');
-
-  if (!token) {
-    // Redirect to careers page with error
-    return NextResponse.redirect('https://preciseanalytics.io/careers?error=invalid_verification_link');
-  }
-
-  // Process the verification using the same logic as POST
-  const verificationResult = await this.POST(request);
-  const resultData = await verificationResult.json();
-
-  if (resultData.success) {
-    // Redirect to careers page with success message
-    return NextResponse.redirect('https://preciseanalytics.io/careers?verified=true');
-  } else {
-    // Redirect to careers page with error
-    return NextResponse.redirect(`https://preciseanalytics.io/careers?error=${encodeURIComponent(resultData.error)}`);
   }
 }
