@@ -131,7 +131,7 @@ export async function GET(
   }
 }
 
-// PUT - Update job (FIXED VERSION - handles both status updates and full updates)
+// PUT - Update job (FIXED VERSION - handles status updates properly)
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -140,7 +140,7 @@ export async function PUT(
     const jobId = params.id;
     const jobData = await request.json();
     
-    console.log('📝 Updating job:', jobId, 'Data:', jobData);
+    console.log('📝 Updating job:', jobId, 'Data received:', jobData);
 
     if (!jobId) {
       return NextResponse.json({
@@ -152,20 +152,23 @@ export async function PUT(
       });
     }
 
-    // FIXED: Only require title/description for full job updates, not status changes
-    const isStatusOnlyUpdate = Object.keys(jobData).length === 1 && jobData.status;
+    // SIMPLE FIX: If status is being updated, skip title/description validation
+    const isUpdatingStatus = 'status' in jobData;
     
-    if (!isStatusOnlyUpdate && (!jobData.title || !jobData.description)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Title and description are required for job content updates'
-      }, { 
-        status: 400, 
-        headers: corsHeaders 
-      });
+    // Only validate title/description if NOT updating status AND they are provided but empty
+    if (!isUpdatingStatus) {
+      if (!jobData.title || !jobData.description) {
+        return NextResponse.json({
+          success: false,
+          error: 'Title and description are required for job content updates'
+        }, { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
     }
 
-    // Simple update - get current job first, then update with provided fields
+    // Get current job
     const currentJob = await sql`SELECT * FROM jobs WHERE id = ${jobId}`;
     
     if (currentJob.length === 0) {
@@ -178,35 +181,35 @@ export async function PUT(
       });
     }
 
-    // Use provided values or keep existing ones
     const current = currentJob[0];
     
+    // Update with provided values or keep existing ones
     const result = await sql`
       UPDATE jobs 
       SET 
         title = ${jobData.title || current.title},
-        department = ${jobData.department || current.department || ''},
-        location = ${jobData.location || current.location || ''},
-        type = ${jobData.type || current.type || 'full_time'},
-        salary_range = ${jobData.salary_range || current.salary_range || ''},
+        department = ${jobData.department !== undefined ? jobData.department : current.department || ''},
+        location = ${jobData.location !== undefined ? jobData.location : current.location || ''},
+        type = ${jobData.type !== undefined ? jobData.type : current.type || 'full_time'},
+        salary_range = ${jobData.salary_range !== undefined ? jobData.salary_range : current.salary_range || ''},
         description = ${jobData.description || current.description},
-        requirements = ${jobData.requirements || current.requirements || ''},
-        benefits = ${jobData.benefits || current.benefits || ''},
-        status = ${jobData.status || current.status || 'published'},
+        requirements = ${jobData.requirements !== undefined ? jobData.requirements : current.requirements || ''},
+        benefits = ${jobData.benefits !== undefined ? jobData.benefits : current.benefits || ''},
+        status = ${jobData.status !== undefined ? jobData.status : current.status || 'published'},
         remote_option = ${jobData.remote_option !== undefined ? jobData.remote_option : current.remote_option || false},
-        expires_at = ${jobData.expires_at || current.expires_at || null},
-        priority = ${jobData.priority || current.priority || 'medium'},
+        expires_at = ${jobData.expires_at !== undefined ? jobData.expires_at : current.expires_at},
+        priority = ${jobData.priority !== undefined ? jobData.priority : current.priority || 'medium'},
         updated_at = NOW()
       WHERE id = ${jobId}
       RETURNING *
     `;
 
-    console.log('✅ Job updated successfully:', result[0].title);
+    console.log('✅ Job updated:', result[0].title, '- Status:', result[0].status);
 
     return NextResponse.json({
       success: true,
       job: result[0],
-      message: isStatusOnlyUpdate 
+      message: isUpdatingStatus 
         ? `Job status updated to ${jobData.status}` 
         : 'Job updated successfully'
     }, { 
