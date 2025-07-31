@@ -432,18 +432,21 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       if (result.success) {
         const normalized = normalizeStatus(newStatus);
 
-        // Identify the new tab this status belongs to
-        const newTab = Object.entries(STATUS_CATEGORIES).find(([_, statuses]) =>
-          statuses.includes(normalized)
+        // Find matching tab
+        const newTab = Object.entries(STATUS_CATEGORIES).find(([_, values]) =>
+          values.includes(normalized)
         )?.[0];
 
-        // Refresh application list
-        await fetchApplications();
-
-        // Apply updated tab based on new status
+        // Switch tab *before* fetching
         if (newTab && newTab !== activeTab) {
           setActiveTab(newTab);
         }
+
+        // Delay to let backend write propagate
+        await new Promise((res) => setTimeout(res, 300));
+
+        // Now fetch applications fresh
+        await fetchApplications();
 
         setShowAlert({ type: 'success', message: 'Status updated successfully!' });
         setSelectedCandidate(null);
