@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'applied';
+    const status = searchParams.get('status');
     const jobId = searchParams.get('job_id');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
 
     let applications;
 
-    if (jobId && status !== 'all') {
+    if (jobId && status && status !== 'all') {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
         ORDER BY a.submission_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
-    } else if (status !== 'all') {
+    } else if (status && status !== 'all') {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
