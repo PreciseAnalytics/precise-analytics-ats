@@ -131,103 +131,7 @@ export async function GET(
   }
 }
 
-// PUT - Update job (for ATS management)
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const jobId = params.id;
-    const jobData = await request.json();
-    
-    console.log('📝 Updating job:', jobId);
-
-    if (!jobId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Job ID is required'
-      }, { 
-        status: 400, 
-        headers: corsHeaders 
-      });
-    }
-
-    // Validate required fields for update
-    if (!jobData.title || !jobData.description) {
-      return NextResponse.json({
-        success: false,
-        error: 'Title and description are required'
-      }, { 
-        status: 400, 
-        headers: corsHeaders 
-      });
-    }
-
-    const result = await sql`
-      UPDATE jobs 
-      SET 
-        title = ${jobData.title},
-        department = ${jobData.department || ''},
-        location = ${jobData.location || ''},
-        type = ${jobData.type || 'full_time'},
-        salary_range = ${jobData.salary_range || ''},
-        description = ${jobData.description},
-        requirements = ${jobData.requirements || ''},
-        benefits = ${jobData.benefits || ''},
-        status = ${jobData.status || 'published'},
-        remote_option = ${jobData.remote_option || false},
-        expires_at = ${jobData.expires_at || null},
-        priority = ${jobData.priority || 'medium'},
-        updated_at = NOW()
-      WHERE id = ${jobId}
-      RETURNING *
-    `;
-
-    if (result.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Job not found'
-      }, { 
-        status: 404, 
-        headers: corsHeaders 
-      });
-    }
-
-    console.log('✅ Job updated successfully:', result[0].title);
-
-    return NextResponse.json({
-      success: true,
-      job: result[0],
-      message: 'Job updated successfully'
-    }, { 
-      headers: corsHeaders 
-    });
-
-  } catch (error: any) {
-    console.error('❌ Job update error:', error);
-    
-    let errorMessage = 'Failed to update job';
-    let statusCode = 500;
-
-    if (error.message?.includes('constraint') || error.message?.includes('invalid')) {
-      errorMessage = 'Invalid job data provided';
-      statusCode = 400;
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {
-      status: statusCode,
-      headers: corsHeaders
-    });
-  }
-}
-
-// In your app/api/jobs/[id]/route.ts file
-// REPLACE the PUT function with this simpler version:
-
+// PUT - Update job (FIXED VERSION - handles both status updates and full updates)
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -315,6 +219,84 @@ export async function PUT(
     return NextResponse.json({
       success: false,
       error: 'Failed to update job',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+}
+
+// DELETE - Archive job (soft delete)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const jobId = params.id;
+    console.log('🗑️ Archiving job:', jobId);
+
+    if (!jobId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Job ID is required'
+      }, { 
+        status: 400, 
+        headers: corsHeaders 
+      });
+    }
+
+    // Soft delete by changing status to 'archived'
+    const result = await sql`
+      UPDATE jobs 
+      SET 
+        status = 'archived', 
+        updated_at = NOW()
+      WHERE id = ${jobId}
+      RETURNING id, title, status
+    `;
+
+    if (result.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Job not found'
+      }, { 
+        status: 404, 
+        headers: corsHeaders 
+      });
+    }
+
+    console.log('✅ Job archived successfully:', result[0].title);
+
+    // Check if there are any applications for this job
+    let applicationCount = 0;
+    try {
+      const countResult = await sql`
+        SELECT COUNT(*) as count 
+        FROM applications 
+        WHERE job_id = ${jobId}
+      `;
+      applicationCount = parseInt(countResult[0]?.count || '0');
+    } catch (countError) {
+      console.warn('⚠️ Failed to get application count:', countError);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Job archived successfully',
+      job: {
+        ...result[0],
+        application_count: applicationCount
+      }
+    }, { 
+      headers: corsHeaders 
+    });
+
+  } catch (error: any) {
+    console.error('❌ Job deletion error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to archive job',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, {
       status: 500,
