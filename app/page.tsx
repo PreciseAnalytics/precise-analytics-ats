@@ -410,10 +410,10 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
 
   const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
     setIsUpdating(applicationId);
-    
+
     try {
       console.log('Updating application:', applicationId, 'to status:', newStatus);
-      
+
       const response = await fetch(`/api/applications/${applicationId}`, {
         method: 'PUT',
         headers: {
@@ -428,18 +428,23 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         const normalized = normalizeStatus(newStatus);
 
-        // Switch to the tab that matches the new status category
-        const newActiveTab = Object.entries(STATUS_CATEGORIES).find(([, values]) =>
-          values.includes(normalized)
-        )?.[0] || 'all';
+        // Identify the new tab this status belongs to
+        const newTab = Object.entries(STATUS_CATEGORIES).find(([_, statuses]) =>
+          statuses.includes(normalized)
+        )?.[0];
 
-        // Update applications and switch tabs
+        // Refresh application list
         await fetchApplications();
-        setActiveTab(newActiveTab);
+
+        // Apply updated tab based on new status
+        if (newTab && newTab !== activeTab) {
+          setActiveTab(newTab);
+        }
+
         setShowAlert({ type: 'success', message: 'Status updated successfully!' });
         setSelectedCandidate(null);
       } else {
@@ -447,9 +452,9 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      setShowAlert({ 
-        type: 'error', 
-        message: `Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      setShowAlert({
+        type: 'error',
+        message: `Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     } finally {
       setIsUpdating(null);
