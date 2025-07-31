@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import styled from 'styled-components';
 
 interface Job {
@@ -8,31 +9,15 @@ interface Job {
   title: string;
   department: string;
   location: string;
-  type: string;
-  description: string;
-  requirements: string;
-  salary_range: string;
-  status: 'active' | 'inactive' | 'expired';
+  status: string;
   created_at: string;
-  applications_count?: number;
+  application_count: number;
 }
 
-export default function JobManagementPage() {
+export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingJob, setEditingJob] = useState<Job | null>(null);
-
-  const [formData, setFormData] = useState({
-    title: '',
-    department: '',
-    location: '',
-    type: 'Full-time',
-    description: '',
-    requirements: '',
-    salary_range: '',
-    status: 'active' as 'active' | 'inactive' | 'expired'
-  });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJobs();
@@ -40,469 +25,277 @@ export default function JobManagementPage() {
 
   const fetchJobs = async () => {
     try {
-      const response = await fetch('/api/jobs');
-      const jobsData = await response.json();
+      setLoading(true);
+      const response = await fetch('/api/jobs?includeStats=true');
       
-      if (Array.isArray(jobsData)) {
-        setJobs(jobsData);
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
       }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
+      
+      const data = await response.json();
+      
+      if (data.success && data.jobs) {
+        setJobs(data.jobs);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
-      const method = editingJob ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        await fetchJobs();
-        resetForm();
-        alert(editingJob ? 'Job updated successfully!' : 'Job created successfully!');
-      } else {
-        alert('Error saving job');
-      }
-    } catch (error) {
-      console.error('Error saving job:', error);
-      alert('Error saving job');
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: '', department: '', location: '', type: 'Full-time',
-      description: '', requirements: '', salary_range: '', status: 'active'
-    });
-    setShowAddForm(false);
-    setEditingJob(null);
-  };
-
-  const handleEdit = (job: Job) => {
-    setFormData({
-      title: job.title,
-      department: job.department,
-      location: job.location,
-      type: job.type,
-      description: job.description,
-      requirements: job.requirements,
-      salary_range: job.salary_range,
-      status: job.status
-    });
-    setEditingJob(job);
-    setShowAddForm(true);
-  };
-
-  const toggleJobStatus = async (job: Job) => {
-    const newStatus = job.status === 'active' ? 'inactive' : 'active';
-    
-    try {
-      const response = await fetch(`/api/jobs/${job.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...job, status: newStatus }),
-      });
-
-      if (response.ok) {
-        await fetchJobs();
-      }
-    } catch (error) {
-      console.error('Error updating job status:', error);
-    }
-  };
-
   if (loading) {
-    return <LoadingContainer>Loading jobs...</LoadingContainer>;
+    return (
+      <PageWrapper>
+        <Container>
+          <LoadingSpinner />
+          <p>Loading jobs...</p>
+        </Container>
+      </PageWrapper>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageWrapper>
+        <Container>
+          <ErrorMessage>
+            <h2>Failed to load jobs</h2>
+            <p>{error}</p>
+            <button onClick={fetchJobs}>Try Again</button>
+          </ErrorMessage>
+        </Container>
+      </PageWrapper>
+    );
   }
 
   return (
-    <PageContainer>
-      <PageHeader>
-        <PageTitle>Job Management</PageTitle>
-        <AddJobButton onClick={() => setShowAddForm(true)}>
-          + Add New Job
-        </AddJobButton>
-      </PageHeader>
+    <PageWrapper>
+      <Container>
+        <Header>
+          <Title>Job Management</Title>
+          <CreateButton onClick={() => window.location.href = '/jobs/create'}>
+            + Create New Job
+          </CreateButton>
+        </Header>
 
-      {showAddForm && (
-        <FormModal>
-          <FormContainer>
-            <FormHeader>
-              <FormTitle>{editingJob ? 'Edit Job' : 'Add New Job'}</FormTitle>
-              <CloseButton onClick={resetForm}>×</CloseButton>
-            </FormHeader>
-            
-            <JobForm onSubmit={handleSubmit}>
-              <FormRow>
-                <FormField>
-                  <label>Job Title *</label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    required
-                  />
-                </FormField>
-                
-                <FormField>
-                  <label>Department *</label>
-                  <input
-                    type="text"
-                    value={formData.department}
-                    onChange={(e) => setFormData({...formData, department: e.target.value})}
-                    required
-                  />
-                </FormField>
-              </FormRow>
-
-              <FormRow>
-                <FormField>
-                  <label>Location *</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({...formData, location: e.target.value})}
-                    required
-                  />
-                </FormField>
-                
-                <FormField>
-                  <label>Employment Type *</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({...formData, type: e.target.value})}
-                  >
-                    <option value="Full-time">Full-time</option>
-                    <option value="Part-time">Part-time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Internship">Internship</option>
-                  </select>
-                </FormField>
-              </FormRow>
-
-              <FormField>
-                <label>Salary Range</label>
-                <input
-                  type="text"
-                  value={formData.salary_range}
-                  onChange={(e) => setFormData({...formData, salary_range: e.target.value})}
-                  placeholder="e.g., $60,000 - $80,000"
-                />
-              </FormField>
-
-              <FormField>
-                <label>Job Description *</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows={4}
-                  required
-                />
-              </FormField>
-
-              <FormField>
-                <label>Requirements *</label>
-                <textarea
-                  value={formData.requirements}
-                  onChange={(e) => setFormData({...formData, requirements: e.target.value})}
-                  rows={4}
-                  placeholder="Enter each requirement on a new line"
-                  required
-                />
-              </FormField>
-
-              <FormField>
-                <label>Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value as any})}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="expired">Expired</option>
-                </select>
-              </FormField>
-
-              <FormActions>
-                <CancelButton type="button" onClick={resetForm}>
-                  Cancel
-                </CancelButton>
-                <SubmitButton type="submit">
-                  {editingJob ? 'Update Job' : 'Create Job'}
-                </SubmitButton>
-              </FormActions>
-            </JobForm>
-          </FormContainer>
-        </FormModal>
-      )}
-
-      <JobsList>
-        <JobsTable>
-          <thead>
-            <tr>
-              <th>Job Title</th>
-              <th>Department</th>
-              <th>Location</th>
-              <th>Type</th>
-              <th>Applications</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        {jobs.length === 0 ? (
+          <EmptyState>
+            <h3>No job postings found</h3>
+            <p>Create your first job posting to get started.</p>
+          </EmptyState>
+        ) : (
+          <JobsGrid>
             {jobs.map((job) => (
-              <tr key={job.id}>
-                <td>{job.title}</td>
-                <td>{job.department}</td>
-                <td>{job.location}</td>
-                <td>{job.type}</td>
-                <td>{job.applications_count || 0}</td>
-                <td>
-                  <StatusBadge status={job.status}>
-                    {job.status}
-                  </StatusBadge>
-                </td>
-                <td>{new Date(job.created_at).toLocaleDateString()}</td>
-                <td>
-                  <ActionButtons>
-                    <EditButton onClick={() => handleEdit(job)}>
-                      Edit
-                    </EditButton>
-                    <StatusButton onClick={() => toggleJobStatus(job)}>
-                      {job.status === 'active' ? 'Deactivate' : 'Activate'}
-                    </StatusButton>
-                  </ActionButtons>
-                </td>
-              </tr>
+              <JobCard key={job.id}>
+                <JobHeader>
+                  <JobTitle>{job.title}</JobTitle>
+                  <JobStatus status={job.status}>{job.status}</JobStatus>
+                </JobHeader>
+                
+                <JobDetails>
+                  <JobDetail>🏢 {job.department}</JobDetail>
+                  <JobDetail>📍 {job.location}</JobDetail>
+                  <JobDetail>📊 {job.application_count} applications</JobDetail>
+                </JobDetails>
+                
+                <JobActions>
+                  <ActionButton onClick={() => window.location.href = `/jobs/${job.id}`}>
+                    View Details
+                  </ActionButton>
+                  <ActionButton onClick={() => window.location.href = `/jobs/${job.id}/edit`}>
+                    Edit
+                  </ActionButton>
+                </JobActions>
+              </JobCard>
             ))}
-          </tbody>
-        </JobsTable>
-      </JobsList>
-    </PageContainer>
+          </JobsGrid>
+        )}
+      </Container>
+    </PageWrapper>
   );
 }
 
 // Styled Components
-const PageContainer = styled.div`
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 2rem 0;
 `;
 
-const PageHeader = styled.div`
+const Container = styled.div`
+  max-width: 120rem;
+  margin: 0 auto;
+  padding: 0 2rem;
+`;
+
+const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid #e9ecef;
 `;
 
-const PageTitle = styled.h1`
-  font-size: 2.5rem;
-  color: #333;
+const Title = styled.h1`
+  font-size: 3.2rem;
+  font-weight: 700;
+  color: rgb(255, 125, 0);
+  margin: 0;
 `;
 
-const AddJobButton = styled.button`
-  background: linear-gradient(135deg, #ff7d00, #ffa500);
+const CreateButton = styled.button`
+  background: rgb(255, 125, 0);
   color: white;
   border: none;
-  padding: 1rem 2rem;
+  padding: 1.2rem 2.4rem;
   border-radius: 0.8rem;
+  font-size: 1.6rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all 0.3s ease;
 
   &:hover {
+    background: rgb(230, 100, 0);
     transform: translateY(-2px);
   }
 `;
 
-const LoadingContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 50vh;
-  font-size: 1.5rem;
+const LoadingSpinner = styled.div`
+  width: 4rem;
+  height: 4rem;
+  border: 3px solid rgba(255, 125, 0, 0.1);
+  border-top: 3px solid rgb(255, 125, 0);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 2rem auto;
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 `;
 
-const FormModal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-`;
-
-const FormContainer = styled.div`
-  background: white;
+const ErrorMessage = styled.div`
+  text-align: center;
+  padding: 4rem;
+  background: #fff;
   border-radius: 1rem;
-  padding: 2rem;
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow: auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+  h2 {
+    color: #dc3545;
+    margin-bottom: 1rem;
+  }
+
+  button {
+    background: rgb(255, 125, 0);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    margin-top: 1rem;
+  }
 `;
 
-const FormHeader = styled.div`
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 6rem 2rem;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+  h3 {
+    color: #6c757d;
+    margin-bottom: 1rem;
+  }
+`;
+
+const JobsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(35rem, 1fr));
+  gap: 2rem;
+`;
+
+const JobCard = styled(motion.div).attrs({
+  whileHover: { y: -4 },
+  transition: { duration: 0.2 }
+})`
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2.4rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #e9ecef;
+`;
+
+const JobHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+`;
+
+const JobTitle = styled.h3`
+  font-size: 2rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+  flex: 1;
+`;
+
+const JobStatus = styled.span<{ status: string }>`
+  padding: 0.4rem 1rem;
+  border-radius: 2rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: ${props => props.status === 'published' ? '#d4edda' : '#f8d7da'};
+  color: ${props => props.status === 'published' ? '#155724' : '#721c24'};
+`;
+
+const JobDetails = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
   margin-bottom: 2rem;
 `;
 
-const FormTitle = styled.h2`
-  margin: 0;
-  color: #333;
+const JobDetail = styled.span`
+  font-size: 1.4rem;
+  color: #6c757d;
 `;
 
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  color: #666;
-`;
-
-const JobForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-`;
-
-const FormRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-`;
-
-const FormField = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-
-  label {
-    font-weight: 600;
-    color: #333;
-  }
-
-  input, select, textarea {
-    padding: 0.8rem;
-    border: 2px solid #ddd;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-
-    &:focus {
-      outline: none;
-      border-color: #ff7d00;
-    }
-  }
-`;
-
-const FormActions = styled.div`
+const JobActions = styled.div`
   display: flex;
   gap: 1rem;
-  justify-content: flex-end;
 `;
 
-const CancelButton = styled.button`
-  padding: 1rem 2rem;
-  border: 2px solid #ddd;
-  background: white;
-  border-radius: 0.5rem;
-  cursor: pointer;
-`;
-
-const SubmitButton = styled.button`
-  padding: 1rem 2rem;
-  background: linear-gradient(135deg, #ff7d00, #ffa500);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  cursor: pointer;
-`;
-
-const JobsList = styled.div`
-  margin-top: 2rem;
-`;
-
-const JobsTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 1rem;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-
-  th {
-    background: #f8f9fa;
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #333;
-  }
-
-  td {
-    padding: 1rem;
-    border-bottom: 1px solid #eee;
-  }
-`;
-
-const StatusBadge = styled.span<{ status: string }>`
-  padding: 0.4rem 0.8rem;
-  border-radius: 2rem;
-  font-size: 0.8rem;
+const ActionButton = styled.button`
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border: 2px solid rgb(255, 125, 0);
+  background: transparent;
+  color: rgb(255, 125, 0);
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
   font-weight: 600;
-  
-  ${({ status }) => {
-    switch (status) {
-      case 'active':
-        return 'background: #d4edda; color: #155724;';
-      case 'inactive':
-        return 'background: #f8d7da; color: #721c24;';
-      case 'expired':
-        return 'background: #fff3cd; color: #856404;';
-      default:
-        return 'background: #e2e3e5; color: #383d41;';
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: rgba(255, 125, 0, 0.1);
+  }
+
+  &:first-child {
+    background: rgb(255, 125, 0);
+    color: white;
+
+    &:hover {
+      background: rgb(230, 100, 0);
     }
-  }}
-`;
-
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
-`;
-
-const EditButton = styled.button`
-  padding: 0.4rem 0.8rem;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 0.3rem;
-  cursor: pointer;
-  font-size: 0.8rem;
-`;
-
-const StatusButton = styled.button`
-  padding: 0.4rem 0.8rem;
-  background: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 0.3rem;
-  cursor: pointer;
-  font-size: 0.8rem;
+  }
 `;

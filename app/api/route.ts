@@ -1,93 +1,70 @@
 // app/api/jobs/route.ts
-// Complete jobs endpoint that uses the same logic as positions
-
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
-const sql = neon(process.env.DATABASE_URL || (() => {
-  throw new Error('DATABASE_URL environment variable is not set');
-})());
+const sql = neon(process.env.DATABASE_URL!);
 
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
 };
 
-// Handle preflight OPTIONS request
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
+  return new Response(null, { status: 200, headers: corsHeaders });
 }
 
-// GET - Fetch all jobs (same as positions endpoint)
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('🔍 Fetching all jobs...');
-
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'published';
-
-    // Query for all published jobs
+    
     const jobs = await sql`
       SELECT 
-        id, title, department, location, type, salary_range,
-        description, requirements, benefits, status, 
-        created_at, updated_at, expires_at, remote_option,
-        priority, posted_by
-      FROM jobs 
-      WHERE status = ${status}
-      ORDER BY created_at DESC
+        j.id, j.title, j.department, j.location, j.type, j.salary_range,
+        j.description, j.requirements, j.benefits, j.status, 
+        j.created_at, j.updated_at, j.expires_at, j.remote_option,
+        j.priority, j.posted_by,
+        COUNT(a.id)::int as application_count
+      FROM jobs j
+      LEFT JOIN applications a ON j.id = a.job_id
+      WHERE j.status = 'published'
+      GROUP BY j.id
+      ORDER BY j.created_at DESC
     `;
 
-    console.log(`✅ Found ${jobs.length} jobs with status: ${status}`);
+    console.log(`✅ Found ${jobs.length} jobs`);
 
-    // Return in the format the frontend expects
     return NextResponse.json({
       success: true,
       jobs: jobs,
       total: jobs.length
-    }, { 
-      headers: corsHeaders 
-    });
+    }, { headers: corsHeaders });
 
   } catch (error: any) {
     console.error('❌ Jobs fetch error:', error);
-    
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch jobs',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {
-      status: 500,
-      headers: corsHeaders
+    }, { 
+      status: 500, 
+      headers: corsHeaders 
     });
   }
 }
 
-// POST - Create new job
 export async function POST(request: NextRequest) {
   try {
     const jobData = await request.json();
     console.log('📝 Creating new job:', jobData.title);
 
-    // Validate required fields
     if (!jobData.title || !jobData.description) {
       return NextResponse.json({
         success: false,
         error: 'Title and description are required'
-      }, { 
-        status: 400, 
-        headers: corsHeaders 
-      });
+      }, { status: 400, headers: corsHeaders });
     }
 
-    // Create the job
     const result = await sql`
       INSERT INTO jobs (
         title, department, location, type, salary_range,
@@ -116,22 +93,18 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      job: newJob,
+      job: { ...newJob, application_count: 0 },
       message: 'Job created successfully'
-    }, { 
-      headers: corsHeaders 
-    });
+    }, { headers: corsHeaders });
 
   } catch (error: any) {
     console.error('❌ Job creation error:', error);
-    
     return NextResponse.json({
       success: false,
-      error: 'Failed to create job',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {
-      status: 500,
-      headers: corsHeaders
+      error: 'Failed to create job'
+    }, { 
+      status: 500, 
+      headers: corsHeaders 
     });
   }
 }
