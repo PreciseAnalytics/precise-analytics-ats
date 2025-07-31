@@ -8,10 +8,10 @@ const sql = neon(process.env.DATABASE_URL || (() => {
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://preciseanalytics.io', // ✅ Specific
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Credentials': 'true', // Can keep this now
 };
 
 // Handle preflight OPTIONS request
