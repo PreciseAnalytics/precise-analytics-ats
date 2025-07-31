@@ -3,8 +3,8 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// PATCH: Update status of an application
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+// Shared logic for both PATCH and PUT
+async function handleStatusUpdate(request: NextRequest, id: string) {
   try {
     const { status } = await request.json();
 
@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const result = await sql`
       UPDATE applications
       SET status = ${status}, updated_at = NOW()
-      WHERE id = ${params.id}
+      WHERE id = ${id}
       RETURNING id, status, updated_at
     `;
 
@@ -32,4 +32,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     console.error('❌ Error updating status:', error);
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
+}
+
+// PATCH handler
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  return handleStatusUpdate(request, params.id);
+}
+
+// PUT handler
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  return handleStatusUpdate(request, params.id);
 }
