@@ -430,11 +430,17 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       const result = await response.json();
       
       if (result.success) {
-        // Refresh applications to get updated counts
+        const normalized = normalizeStatus(newStatus);
+
+        // Switch to the tab that matches the new status category
+        const newActiveTab = Object.entries(STATUS_CATEGORIES).find(([, values]) =>
+          values.includes(normalized)
+        )?.[0] || 'all';
+
+        // Update applications and switch tabs
         await fetchApplications();
+        setActiveTab(newActiveTab);
         setShowAlert({ type: 'success', message: 'Status updated successfully!' });
-        
-        // Close modal
         setSelectedCandidate(null);
       } else {
         throw new Error(result.error || 'Failed to update status');
