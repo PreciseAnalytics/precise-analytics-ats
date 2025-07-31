@@ -432,22 +432,24 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       if (result.success) {
         const normalized = normalizeStatus(newStatus);
 
-        // Find matching tab
-        const newTab = Object.entries(STATUS_CATEGORIES).find(([_, values]) =>
-          values.includes(normalized)
+        // Debug logs
+        console.log('✅ New status:', newStatus);
+        console.log('✅ Normalized:', normalized);
+
+        // Map to matching tab
+        const newTab = Object.entries(STATUS_CATEGORIES).find(([_, list]) =>
+          list.includes(normalized)
         )?.[0];
 
-        // Switch tab *before* fetching
+        // Switch tab if needed
         if (newTab && newTab !== activeTab) {
           setActiveTab(newTab);
         }
 
-        // Delay to let backend write propagate
-        await new Promise((res) => setTimeout(res, 300));
+        // Let DB update finalize
+        await new Promise((r) => setTimeout(r, 300));
 
-        // Now fetch applications fresh
         await fetchApplications();
-
         setShowAlert({ type: 'success', message: 'Status updated successfully!' });
         setSelectedCandidate(null);
       } else {
