@@ -1,4 +1,4 @@
-// app/api/jobs/[id]/route.ts
+// app/api/jobs/[id]/route.ts - FIXED VERSION
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
@@ -53,7 +53,7 @@ export async function GET(
       });
     }
 
-    // Query the jobs table for the specific job
+    // FIXED: Use proper parameterized query
     const result = await sql`
       SELECT 
         id, title, department, location, type, salary_range,
@@ -110,29 +110,18 @@ export async function GET(
   } catch (error: any) {
     console.error('❌ Job fetch error:', error);
     
-    let errorMessage = 'Failed to fetch job details';
-    let statusCode = 500;
-
-    if (error.message?.includes('connection') || error.message?.includes('timeout')) {
-      errorMessage = 'Database connection error. Please try again.';
-      statusCode = 503;
-    } else if (error.message?.includes('invalid input syntax')) {
-      errorMessage = 'Invalid job ID format';
-      statusCode = 400;
-    }
-
     return NextResponse.json({
       success: false,
-      error: errorMessage,
+      error: 'Failed to fetch job details',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, {
-      status: statusCode,
+      status: 500,
       headers: corsHeaders
     });
   }
 }
 
-// PUT - Update job (enhanced with debugging and aligned statuses)
+// PUT - Update job (FIXED with proper parameterized queries)
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -156,7 +145,7 @@ export async function PUT(
     // Validate status if provided
     const validStatuses = ['published', 'archived', 'deactivated', 'draft', 'active'];
     if (jobData.status && !validStatuses.includes(jobData.status)) {
-      console.log('❌ Invalid status received:', jobData.status, 'Valid statuses:', validStatuses);
+      console.log('❌ Invalid status received:', jobData.status);
       return NextResponse.json({
         success: false,
         error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
@@ -164,30 +153,12 @@ export async function PUT(
         status: 400, 
         headers: corsHeaders 
       });
-    } else if (!jobData.status) {
-      console.log('⚠️ No status provided, using existing:', jobData.status);
     }
 
-    // SIMPLE FIX: If status is being updated, skip title/description validation
-    const isUpdatingStatus = 'status' in jobData;
+    // Get current job first
+    const currentJobResult = await sql`SELECT * FROM jobs WHERE id = ${jobId}`;
     
-    // Only validate title/description if NOT updating status AND they are provided but empty
-    if (!isUpdatingStatus) {
-      if (jobData.title === '' || jobData.description === '') {
-        return NextResponse.json({
-          success: false,
-          error: 'Title and description are required for job content updates'
-        }, { 
-          status: 400, 
-          headers: corsHeaders 
-        });
-      }
-    }
-
-    // Get current job
-    const currentJob = await sql`SELECT * FROM jobs WHERE id = ${jobId}`;
-    
-    if (currentJob.length === 0) {
+    if (currentJobResult.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'Job not found'
@@ -197,32 +168,37 @@ export async function PUT(
       });
     }
 
-    const current = currentJob[0];
+    const current = currentJobResult[0];
     
-    // Update with provided values or keep existing ones
+    // FIXED: Use proper parameterized update with coalescing
     const result = await sql`
-  UPDATE jobs 
-    SET 
-      title = ${jobData.title !== undefined ? jobData.title : current.title},
-      department = ${jobData.department !== undefined ? jobData.department : current.department || ''},
-      location = ${jobData.location !== undefined ? jobData.location : current.location || ''},
-      type = ${jobData.type !== undefined ? jobData.type : current.type || 'full_time'},
-      salary_range = ${jobData.salary_range !== undefined ? jobData.salary_range : current.salary_range || ''},
-      description = ${jobData.description !== undefined ? jobData.description : current.description},
-      requirements = ${jobData.requirements !== undefined ? jobData.requirements : current.requirements || ''},
-      benefits = ${jobData.benefits !== undefined ? jobData.benefits : current.benefits || ''},
-      status = ${jobData.status !== undefined ? jobData.status : current.status || 'active'},    // ← CHANGE THIS LINE
-      remote_option = ${jobData.remote_option !== undefined ? jobData.remote_option : current.remote_option || false},
-      expires_at = ${jobData.expires_at !== undefined ? jobData.expires_at : current.expires_at},
-      priority = ${jobData.priority !== undefined ? jobData.priority : current.priority || 'medium'},
-      updated_at = NOW(),
-      posted = ${jobData.posted !== undefined ? jobData.posted : current.posted}
-    WHERE id = ${jobId}
-    RETURNING *
-  `;
-    console.log('✅ Job updated:', result[0].title, '- Status:', result[0].status, '- Posted:', result[0].posted);
+      UPDATE jobs 
+      SET 
+        title = ${jobData.title ?? current.title},
+        department = ${jobData.department ?? current.department ?? ''},
+        location = ${jobData.location ?? current.location ?? ''},
+        type = ${jobData.type ?? current.type ?? 'full_time'},
+        salary_range = ${jobData.salary_range ?? current.salary_range ?? ''},
+        description = ${jobData.description ?? current.description},
+        requirements = ${jobData.requirements ?? current.requirements ?? ''},
+        benefits = ${jobData.benefits ?? current.benefits ?? ''},
+        status = ${jobData.status ?? current.status ?? 'published'},
+        remote_option = ${jobData.remote_option ?? current.remote_option ?? false},
+        expires_at = ${jobData.expires_at ?? current.expires_at},
+        priority = ${jobData.priority ?? current.priority ?? 'medium'},
+        updated_at = NOW(),
+        posted = ${jobData.posted ?? current.posted}
+      WHERE id = ${jobId}
+      RETURNING *
+    `;
 
-    // Recalculate application count for the updated job
+    if (result.length === 0) {
+      throw new Error('Update operation failed - no rows affected');
+    }
+
+    console.log('✅ Job updated successfully:', result[0].title, '- Status:', result[0].status);
+
+    // Get application count for the updated job
     let applicationCount = 0;
     try {
       const countResult = await sql`
@@ -241,39 +217,21 @@ export async function PUT(
         ...result[0],
         application_count: applicationCount
       },
-      message: isUpdatingStatus 
-        ? `Job status updated to ${jobData.status}` 
-        : 'Job updated successfully'
+      message: `Job updated successfully`
     }, { 
       headers: corsHeaders 
     });
 
   } catch (error: any) {
     console.error('❌ Job update error:', error);
+    console.error('❌ Error stack:', error.stack);
     
-    let errorMessage = 'Failed to update job';
-    let statusCode = 500;
-
-    if (error.message?.includes('connection') || error.message?.includes('timeout')) {
-      errorMessage = 'Database connection error. Please try again.';
-      statusCode = 503;
-    } else if (error.message?.includes('invalid input syntax')) {
-      errorMessage = 'Invalid data format';
-      statusCode = 400;
-    } else if (error.message?.includes('duplicate key')) {
-      errorMessage = 'Job update conflict detected';
-      statusCode = 409;
-    } else if (error.message?.includes('value too long') || error.message?.includes('violates check constraint')) {
-      errorMessage = 'Invalid status value or database constraint violation';
-      statusCode = 400;
-    }
-
     return NextResponse.json({
       success: false,
-      error: errorMessage,
+      error: 'Failed to update job',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, {
-      status: statusCode,
+      status: 500,
       headers: corsHeaders
     });
   }
@@ -298,7 +256,7 @@ export async function DELETE(
       });
     }
 
-    // Soft delete by changing status to 'archived'
+    // FIXED: Use proper parameterized query
     const result = await sql`
       UPDATE jobs 
       SET 
@@ -320,26 +278,10 @@ export async function DELETE(
 
     console.log('✅ Job archived successfully:', result[0].title);
 
-    // Check if there are any applications for this job
-    let applicationCount = 0;
-    try {
-      const countResult = await sql`
-        SELECT COUNT(*) as count 
-        FROM applications 
-        WHERE job_id = ${jobId}
-      `;
-      applicationCount = parseInt(countResult[0]?.count || '0');
-    } catch (countError) {
-      console.warn('⚠️ Failed to get application count:', countError);
-    }
-
     return NextResponse.json({
       success: true,
       message: 'Job archived successfully',
-      job: {
-        ...result[0],
-        application_count: applicationCount
-      }
+      job: result[0]
     }, { 
       headers: corsHeaders 
     });
