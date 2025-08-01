@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node-pg-migrate --ts up",
+    "migrate:init": "node-pg-migrate --ts init -d DATABASE_URL"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.6",
