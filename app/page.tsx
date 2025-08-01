@@ -692,7 +692,7 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(application.applied_at || application.submission_date || application.created_at || '').toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <td className="px-6 py-4 text-sm font-medium space-x-2">
                         <button
                           onClick={() => handleView(application)}
                           className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
@@ -870,6 +870,25 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   );
 };
 
+type JobStatus = 'active' | 'inactive' | 'expired' | 'archived' | 'deactivated' | 'draft';
+
+// Normalize job status for backward compatibility
+const getNormalizedJobStatus = (job: any): JobStatus => {
+  if (!job) return 'inactive';
+  if (job.status === 'archived') return 'archived';
+  if (job.status === 'deactivated') return 'deactivated';
+  if (job.status === 'expired') return 'expired';
+  if (job.status === 'draft') return 'inactive';
+  if (job.status === 'published' || (job.posted === true && !job.status)) {
+    return 'active';
+  }
+  if (job.status === 'unpublished' || job.posted === false || job.status === 'inactive') {
+    return 'inactive';
+  }
+  return 'inactive';
+};
+
+// JobManagementPage Component
 const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -877,7 +896,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const [editingJob, setEditingJob] = useState<any>(null);
   const [showAlert, setShowAlert] = useState<Alert>(null);
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
-  const [activeJobTab, setActiveJobTab] = useState('active');
+  const [activeJobTab, setActiveJobTab] = useState('all');
   const [formData, setFormData] = useState({
     title: '',
     department: '',
@@ -888,47 +907,56 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     requirements: '',
     posted: true,
     auto_expire_days: 30,
-    max_applications: 50
+    max_applications: 50,
   });
 
   // Job status categories
   const jobTabs = [
+    { id: 'all', label: 'All Jobs (Debug)', color: 'bg-purple-100 text-purple-700 border-purple-200' },
     { id: 'active', label: 'Active Jobs', color: 'bg-green-100 text-green-700 border-green-200' },
     { id: 'inactive', label: 'Inactive Jobs', color: 'bg-gray-100 text-gray-700 border-gray-200' },
     { id: 'expired', label: 'Expired Jobs', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-    { id: 'draft', label: 'Draft Jobs', color: 'bg-blue-100 text-blue-700 border-blue-200' }
+    { id: 'draft', label: 'Draft Jobs', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { id: 'archived', label: 'Archived Jobs', color: 'bg-red-100 text-red-700 border-red-200' },
+    { id: 'deactivated', label: 'Deactivated Jobs', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
   ];
 
   // Get job counts by status
   const getJobCounts = () => {
     const counts = {
-      active: jobs.filter(job => job.status === 'active').length,
-      inactive: jobs.filter(job => job.status === 'inactive').length,
-      expired: jobs.filter(job => job.status === 'expired').length,
-      draft: jobs.filter(job => job.status === 'draft').length
+      active: 0,
+      inactive: 0,
+      expired: 0,
+      draft: 0,
+      archived: 0,
+      deactivated: 0,
     };
+
+    jobs.forEach((job) => {
+      const normalizedStatus = getNormalizedJobStatus(job);
+      counts[normalizedStatus]++;
+    });
+
     return counts;
   };
 
   const jobCounts = getJobCounts();
 
   // Filter jobs by active tab
-  const filteredJobs = jobs.filter(job => {
-    if (activeJobTab === 'active') return job.status === 'active';
-    if (activeJobTab === 'inactive') return job.status === 'inactive';
-    if (activeJobTab === 'expired') return job.status === 'expired';
-    if (activeJobTab === 'draft') return job.status === 'draft';
-    return true;
+  const filteredJobs = jobs.filter((job) => {
+    const normalizedStatus = getNormalizedJobStatus(job);
+    if (activeJobTab === 'all') return true;
+    return normalizedStatus === activeJobTab;
   });
 
   // Check if job should be auto-expired
   const checkJobExpiry = (job: any) => {
     if (job.status !== 'active' || !job.posted_date) return false;
-    
+
     const postedDate = new Date(job.posted_date);
     const expiryDays = job.auto_expire_days || 30;
-    const expiryDate = new Date(postedDate.getTime() + (expiryDays * 24 * 60 * 60 * 1000));
-    
+    const expiryDate = new Date(postedDate.getTime() + expiryDays * 24 * 60 * 60 * 1000);
+
     return new Date() > expiryDate;
   };
 
@@ -940,29 +968,85 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
   // Get job status display info
   const getJobStatusInfo = (job: any) => {
+    const normalizedStatus = getNormalizedJobStatus(job);
     const isExpired = checkJobExpiry(job);
     const isAtLimit = checkApplicationLimit(job);
-    
+
     if (isExpired || isAtLimit) {
       return {
         status: 'expired',
         label: isExpired ? 'Auto-Expired' : 'Application Limit Reached',
         color: 'bg-yellow-100 text-yellow-800',
-        canReactivate: true
+        canReactivate: true,
+        originalStatus: job.status,
+        posted: job.posted,
       };
     }
 
-    switch (job.status) {
+    switch (normalizedStatus) {
+      case 'archived':
+        return {
+          status: 'archived',
+          label: 'Archived',
+          color: 'bg-red-100 text-red-800',
+          canReactivate: true,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
+      case 'deactivated':
+        return {
+          status: 'deactivated',
+          label: 'Deactivated',
+          color: 'bg-yellow-100 text-yellow-800',
+          canReactivate: true,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
       case 'active':
-        return { status: 'active', label: 'Live on Site', color: 'bg-green-100 text-green-800', canReactivate: false };
+        return {
+          status: 'active',
+          label: 'Live on Site',
+          color: 'bg-green-100 text-green-800',
+          canReactivate: false,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
       case 'inactive':
-        return { status: 'inactive', label: 'Inactive', color: 'bg-gray-100 text-gray-800', canReactivate: true };
+        return {
+          status: 'inactive',
+          label: 'Inactive',
+          color: 'bg-gray-100 text-gray-800',
+          canReactivate: true,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
       case 'expired':
-        return { status: 'expired', label: 'Expired', color: 'bg-yellow-100 text-yellow-800', canReactivate: true };
+        return {
+          status: 'expired',
+          label: 'Expired',
+          color: 'bg-yellow-100 text-yellow-800',
+          canReactivate: true,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
       case 'draft':
-        return { status: 'draft', label: 'Draft', color: 'bg-blue-100 text-blue-800', canReactivate: false };
+        return {
+          status: 'draft',
+          label: 'Draft',
+          color: 'bg-blue-100 text-blue-800',
+          canReactivate: false,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
       default:
-        return { status: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-800', canReactivate: false };
+        return {
+          status: 'draft',
+          label: `Legacy (${job.status || 'unknown'})`,
+          color: 'bg-purple-100 text-purple-800',
+          canReactivate: false,
+          originalStatus: job.status,
+          posted: job.posted,
+        };
     }
   };
 
@@ -974,18 +1058,18 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     try {
       setLoading(true);
       console.log('🔄 Fetching jobs...');
-      
+
       const response = await fetch('/api/jobs?' + new Date().getTime(), {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setJobs(data.jobs);
         console.log(`✅ Fetched ${data.jobs.length} jobs`);
@@ -1000,55 +1084,54 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     }
   };
 
-  // Fixed handleInputChange - updates the right state based on editing vs creating
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const target = e.target;
     const { name, value, type } = target;
     const newValue = type === 'checkbox' ? (target as HTMLInputElement).checked : value;
 
     if (editingJob) {
-      // When editing, update editingJob state
       setEditingJob({
         ...editingJob,
-        [name]: newValue
+        [name]: newValue,
       });
     } else {
-      // When creating new, update formData state
       setFormData({
         ...formData,
-        [name]: newValue
+        [name]: newValue,
       });
     }
   };
 
-  // Fixed handleSubmit - uses correct data source and proper API calls
   const handleSubmit = async () => {
     try {
       setIsSubmittingJob(true);
-      
-      // Use the right data source
-      const dataToSend = editingJob ? {
-        title: editingJob.title,
-        department: editingJob.department,
-        location: editingJob.location,
-        employment_type: editingJob.employment_type || editingJob.type,
-        salary_range: editingJob.salary_range,
-        description: editingJob.description,
-        requirements: editingJob.requirements,
-        benefits: editingJob.benefits || '',
-        auto_expire_days: editingJob.auto_expire_days || 30,
-        max_applications: editingJob.max_applications || 50,
-        status: editingJob.posted ? 'active' : 'draft',
-        posted_date: editingJob.posted ? (editingJob.posted_date || new Date().toISOString()) : null
-      } : {
-        ...formData,
-        status: formData.posted ? 'active' : 'draft',
-        posted_date: formData.posted ? new Date().toISOString() : null
-      };
+
+      const dataToSend = editingJob
+        ? {
+            title: editingJob.title,
+            department: editingJob.department,
+            location: editingJob.location,
+            employment_type: editingJob.employment_type || editingJob.type,
+            salary_range: editingJob.salary_range,
+            description: editingJob.description,
+            requirements: editingJob.requirements,
+            benefits: editingJob.benefits || '',
+            auto_expire_days: editingJob.auto_expire_days || 30,
+            max_applications: editingJob.max_applications || 50,
+            status: editingJob.posted ? 'active' : 'draft',
+            posted_date: editingJob.posted ? editingJob.posted_date || new Date().toISOString() : null,
+          }
+        : {
+            ...formData,
+            status: formData.posted ? 'active' : 'draft',
+            posted_date: formData.posted ? new Date().toISOString() : null,
+          };
 
       const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
       const method = editingJob ? 'PUT' : 'POST';
-      
+
       console.log(`🔄 ${editingJob ? 'Updating' : 'Creating'} job:`, dataToSend);
 
       const response = await fetch(url, {
@@ -1061,12 +1144,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
       const result = await response.json();
       console.log('📝 Job API response:', result);
-      
+
       if (result.success) {
-        // Refresh jobs list to get latest data
         await fetchJobs();
-        
-        // Close form and reset state
         setShowJobForm(false);
         setEditingJob(null);
         setFormData({
@@ -1079,33 +1159,32 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
           requirements: '',
           posted: true,
           auto_expire_days: 30,
-          max_applications: 50
+          max_applications: 50,
         });
-        
-        setShowAlert({ 
-          type: 'success', 
-          message: editingJob ? 'Job updated successfully!' : 'Job created successfully!' 
+        setShowAlert({
+          type: 'success',
+          message: editingJob ? 'Job updated successfully!' : 'Job created successfully!',
         });
-        
         console.log(`✅ Job ${editingJob ? 'updated' : 'created'} successfully`);
       } else {
         throw new Error(result.error || 'Failed to save job');
       }
     } catch (error) {
       console.error('❌ Error saving job:', error);
-      setShowAlert({ type: 'error', message: `Failed to save job: ${error instanceof Error ? error.message : 'Unknown error'}` });
+      setShowAlert({
+        type: 'error',
+        message: `Failed to save job: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
     } finally {
       setIsSubmittingJob(false);
     }
   };
 
-  // Fixed handleEdit - properly sets up editing state
   const handleEdit = (job: any) => {
     console.log('📝 Editing job:', job);
-    
+
     setEditingJob({
       ...job,
-      // Ensure all required fields are present
       title: job.title || '',
       department: job.department || '',
       location: job.location || '',
@@ -1116,93 +1195,75 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       benefits: job.benefits || '',
       auto_expire_days: job.auto_expire_days || 30,
       max_applications: job.max_applications || 50,
-      posted: job.status === 'active' || job.posted === true
+      posted: job.status === 'active' || job.posted === true,
     });
-    
-    // Don't set formData when editing - we'll use editingJob
+
     setShowJobForm(true);
   };
 
   const handleDelete = async (jobId: string) => {
     if (!confirm('Are you sure you want to delete this job posting?')) return;
-    
+
     try {
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'DELETE',
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         await fetchJobs();
+        setActiveJobTab('all'); // FIXED: replaces bad reference to newStatus
         setShowAlert({ type: 'success', message: 'Job deleted successfully!' });
       } else {
         throw new Error(result.error || 'Failed to delete job');
       }
     } catch (error) {
       console.error('Error deleting job:', error);
-      setShowAlert({ type: 'error', message: `Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}` });
-    }
-  };
-
-  // Enhanced job status management
-  const updateJobStatus = async (jobId: string, newStatus: string) => {
-    try {
-      console.log(`🔄 Updating job ${jobId} status to ${newStatus}`);
-      
-      const updateData: any = { status: newStatus };
-      
-      // Set posted_date when activating a job
-      if (newStatus === 'active') {
-        updateData.posted_date = new Date().toISOString();
-      }
-      
-      const response = await fetch(`/api/jobs/${jobId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
+      setShowAlert({
+        type: 'error',
+        message: `Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
-
-      const result = await response.json();
-      console.log('📌 Update status response:', result);
-      
-      if (result.success) {
-        await fetchJobs();
-        const statusMessages = {
-          'active': 'Job activated and published to careers page!',
-          'inactive': 'Job deactivated and removed from careers page.',
-          'expired': 'Job marked as expired.',
-          'draft': 'Job saved as draft.'
-        };
-        setShowAlert({ 
-          type: 'success', 
-          message: statusMessages[newStatus] || 'Job status updated successfully!' 
-        });
-        console.log(`✅ Job ${jobId} status updated to ${newStatus}`);
-      } else {
-        throw new Error(result.error || 'Failed to update job status');
-      }
-    } catch (error) {
-      console.error('❌ Error updating job status:', error);
-      setShowAlert({ type: 'error', message: `Failed to update job status: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
   };
 
-  // Reactivate job (from inactive/expired to active)
+  const updateJobStatus = async (jobId: string, newStatus: string) => {
+  try {
+    setLoading(true);
+    const updateData: any = { status: newStatus };
+    if (newStatus === 'deactivated') {
+      updateData.posted = false; // Set posted to false for deactivated jobs
+    } else if (newStatus === 'active') {
+      updateData.posted = true;
+      updateData.posted_date = new Date().toISOString();
+    }
+    console.log('Updating job status:', { jobId, updateData }); // Debug log
+    const response = await fetch(`/api/jobs/${jobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to update job status');
+    fetchJobs(); // Refresh job list
+  } catch (error) {
+    console.error('Error updating job status:', error);
+    setShowAlert({ type: 'error', message: `Failed to update job status: ${error.message}` });
+  } finally {
+    setLoading(false);
+  }
+};
+
   const reactivateJob = async (jobId: string) => {
     if (!confirm('Reactivate this job and publish it to the careers page?')) return;
     await updateJobStatus(jobId, 'active');
   };
 
-  // Deactivate job (from active to inactive)
   const deactivateJob = async (jobId: string) => {
     if (!confirm('Deactivate this job and remove it from the careers page? It will be kept in your job repository.')) return;
-    await updateJobStatus(jobId, 'inactive');
+    await updateJobStatus(jobId, 'deactivated');
   };
 
-  // Auto-hide alerts after 5 seconds
   useEffect(() => {
     if (showAlert) {
       const timer = setTimeout(() => setShowAlert(null), 5000);
@@ -1225,7 +1286,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
               <PreciseAnalyticsLogo clickable onClick={() => onNavigate('dashboard')} />
               <span className="text-lg font-semibold text-gray-700">Job Management</span>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => onNavigate('dashboard')}
@@ -1234,7 +1295,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                 <BarChart3 className="w-4 h-4" />
                 <span>Dashboard</span>
               </button>
-              
+
               <button
                 onClick={() => {
                   localStorage.removeItem('ats_auth');
@@ -1252,10 +1313,13 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
       {/* Alert */}
       {showAlert && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-          showAlert.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
-          'bg-red-100 text-red-800 border border-red-200'
-        }`}>
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            showAlert.type === 'success'
+              ? 'bg-green-100 text-green-800 border border-green-200'
+              : 'bg-red-100 text-red-800 border border-red-200'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span>{showAlert.message}</span>
             <button onClick={() => setShowAlert(null)} className="ml-4 text-gray-400 hover:text-gray-600">
@@ -1271,7 +1335,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
           <h1 className="text-2xl font-bold text-gray-900">Manage Job Postings</h1>
           <div className="flex space-x-3">
             <button
-              onClick={() => window.open('/careers', '_blank')}
+              onClick={() => window.open('https://preciseanalytics.io/careers', '_blank')}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Globe className="w-4 h-4" />
@@ -1290,7 +1354,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                   requirements: '',
                   posted: true,
                   auto_expire_days: 30,
-                  max_applications: 50
+                  max_applications: 50,
                 });
                 setShowJobForm(true);
               }}
@@ -1315,9 +1379,11 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
               }`}
             >
               <span className="font-medium">{tab.label}</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                activeJobTab === tab.id ? 'bg-white/30' : 'bg-gray-100'
-              }`}>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeJobTab === tab.id ? 'bg-white/30' : 'bg-gray-100'
+                }`}
+              >
                 {jobCounts[tab.id] || 0}
               </span>
             </button>
@@ -1330,27 +1396,41 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="min-w-[1100px] w-full table-fixed">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applications</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Job Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Applications
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Expires
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredJobs.map((job) => {
                     const statusInfo = getJobStatusInfo(job);
-                    const expiryDate = job.posted_date && job.auto_expire_days 
-                      ? new Date(new Date(job.posted_date).getTime() + (job.auto_expire_days * 24 * 60 * 60 * 1000))
+                    const expiryDate = job.posted_date && job.auto_expire_days
+                      ? new Date(new Date(job.posted_date).getTime() + job.auto_expire_days * 24 * 60 * 60 * 1000)
                       : null;
-                    
+
                     return (
                       <tr key={job.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -1359,18 +1439,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             <div className="text-sm text-gray-500">{job.salary_range}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {job.department}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {job.location}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{job.department}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{job.location}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {job.application_count || 0}
-                            {job.max_applications && (
-                              <span className="text-gray-500">/{job.max_applications}</span>
-                            )}
+                            {job.max_applications && <span className="text-gray-500">/{job.max_applications}</span>}
                           </div>
                           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                             {job.employment_type?.replace('_', ' ').toUpperCase()}
@@ -1384,6 +1458,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             {statusInfo.status === 'active' && (
                               <div>
                                 <Globe className="w-4 h-4 text-green-600" />
+                              </div>
+                            )}
+                            {activeJobTab === 'all' && (
+                              <div className="text-xs text-gray-500 ml-2">
+                                <div>Raw: {statusInfo.originalStatus || 'null'}</div>
+                                <div>Posted: {statusInfo.posted ? 'true' : 'false'}</div>
                               </div>
                             )}
                           </div>
@@ -1400,48 +1480,53 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 text-sm font-medium">
                           <div className="flex flex-wrap gap-2">
                             <button
+                              title="Edit Job"
                               onClick={() => handleEdit(job)}
                               className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
                             >
                               <Edit3 className="w-4 h-4 mr-1" />
-                              Edit
+                              <span>Edit</span>
                             </button>
-                            
+
                             {statusInfo.status === 'active' ? (
                               <button
+                                title="Deactivate Job"
                                 onClick={() => deactivateJob(job.id)}
                                 className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
                               >
                                 <Eye className="w-4 h-4 mr-1" />
-                                Deactivate
+                                <span>Deactivate</span>
                               </button>
                             ) : statusInfo.canReactivate ? (
                               <button
+                                title="Reactivate Job"
                                 onClick={() => reactivateJob(job.id)}
                                 className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                               >
                                 <Globe className="w-4 h-4 mr-1" />
-                                Reactivate
+                                <span>Reactivate</span>
                               </button>
                             ) : job.status === 'draft' ? (
                               <button
+                                title="Publish Job"
                                 onClick={() => updateJobStatus(job.id, 'active')}
                                 className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                               >
                                 <Globe className="w-4 h-4 mr-1" />
-                                Publish
+                                <span>Publish</span>
                               </button>
                             ) : null}
-                            
+
                             <button
-                              onClick={() => handleDelete(job.id)}
+                              title="Archive Job"
+                              onClick={() => updateJobStatus(job.id, 'archived')}
                               className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                             >
                               <X className="w-4 h-4 mr-1" />
-                              Delete
+                              <span>Archive</span>
                             </button>
                           </div>
                         </td>
@@ -1451,7 +1536,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                 </tbody>
               </table>
             </div>
-            
+
             {filteredJobs.length === 0 && (
               <div className="text-center py-12">
                 <Building className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -1498,7 +1583,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                       requirements: '',
                       posted: true,
                       auto_expire_days: 30,
-                      max_applications: 50
+                      max_applications: 50,
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600"
@@ -1608,7 +1693,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     <option value={60}>60 days</option>
                     <option value={90}>90 days</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Job will automatically move to expired after this period</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Job will automatically move to expired after this period
+                  </p>
                 </div>
 
                 <div>
@@ -1626,7 +1713,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="50"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Job will be removed from careers page when this limit is reached</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Job will be removed from careers page when this limit is reached
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -1674,9 +1763,11 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                     <label htmlFor="posted" className="block text-sm text-gray-900">
                       <div className="font-medium">Activate and Publish to Careers Page</div>
                       <div className="text-xs text-gray-600">
-                        Make this job active and visible to applicants. 
-                        {getFieldValue('auto_expire_days') && ` Will auto-expire after ${getFieldValue('auto_expire_days')} days.`}
-                        {getFieldValue('max_applications') && ` Limited to ${getFieldValue('max_applications')} applications.`}
+                        Make this job active and visible to applicants.
+                        {getFieldValue('auto_expire_days') &&
+                          ` Will auto-expire after ${getFieldValue('auto_expire_days')} days.`}
+                        {getFieldValue('max_applications') &&
+                          ` Limited to ${getFieldValue('max_applications')} applications.`}
                       </div>
                     </label>
                   </div>
@@ -1698,7 +1789,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                       requirements: '',
                       posted: true,
                       auto_expire_days: 30,
-                      max_applications: 50
+                      max_applications: 50,
                     });
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
@@ -1715,8 +1806,10 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       {editingJob ? 'Updating...' : 'Creating...'}
                     </div>
+                  ) : editingJob ? (
+                    'Update Job'
                   ) : (
-                    editingJob ? 'Update Job' : 'Create Job'
+                    'Create Job'
                   )}
                 </button>
               </div>

@@ -1,6 +1,4 @@
 // app/api/jobs/route.ts
-// Complete jobs endpoint that uses the same logic as positions
-
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
@@ -24,16 +22,16 @@ export async function OPTIONS() {
   });
 }
 
-// GET - Fetch all jobs (same as positions endpoint)
+// GET - Fetch all jobs (modified to include all statuses by default)
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Fetching all jobs...');
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'published';
+    const status = searchParams.get('status');
 
-    // Query for all published jobs
+    // Query for all jobs if no status is specified, otherwise filter by status
     const jobs = await sql`
       SELECT 
         id, title, department, location, type, salary_range,
@@ -41,11 +39,11 @@ export async function GET(request: NextRequest) {
         created_at, updated_at, expires_at, remote_option,
         priority, posted_by
       FROM jobs 
-      WHERE status = ${status}
+      ${status ? sql`WHERE status = ${status}` : sql``}
       ORDER BY created_at DESC
     `;
 
-    console.log(`✅ Found ${jobs.length} jobs with status: ${status}`);
+    console.log(`✅ Found ${jobs.length} jobs${status ? ` with status: ${status}` : ''}`);
 
     // Return in the format the frontend expects
     return NextResponse.json({
