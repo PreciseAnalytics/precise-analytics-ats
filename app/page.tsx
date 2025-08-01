@@ -1245,7 +1245,13 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     });
     const data = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to update job status');
-    fetchJobs(); // Refresh job list
+
+    await fetchJobs(); // Refresh job list
+
+    setShowAlert({
+      type: 'success',
+      message: `Job has been ${newStatus === 'active' ? 'reactivated and published' : 'updated'} successfully!`,
+    }); // Refresh job list
   } catch (error) {
     console.error('Error updating job status:', error);
     setShowAlert({ type: 'error', message: `Failed to update job status: ${error.message}` });
