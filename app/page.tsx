@@ -11,7 +11,9 @@ type Application = {
   email: string;
   job_title: string;
   status: string;
-  applied_at: string;
+  applied_at?: string;
+  submission_date?: string;
+  created_at?: string;
   application_source: string;
   phone?: string;
   notes?: string;
@@ -40,27 +42,48 @@ type PreciseAnalyticsLogoProps = {
 const STATUS_MAPPING: Record<string, string> = {
   'applied': 'applied',
   'submitted': 'applied',
-  'shortlisted_for_interview': 'shortlisted_for_interview',
+  'new': 'applied',
+  'pending': 'applied',
+  'under_review': 'screening',
+  'reviewing': 'screening',
+  'screening': 'screening',
+  'screened': 'screening',
+  'phone_screen': 'screening',
+  'initial_review': 'screening',
+  'shortlisted': 'shortlisted',
+  'shortlisted_for_interview': 'shortlisted',
   'first_interview': 'first_interview',
-  'second_interview': 'second_interview', 
+  'interview_1': 'first_interview',
+  'second_interview': 'second_interview',
+  'interview_2': 'second_interview',
+  'final_interview': 'final_interview',
+  'interview_3': 'final_interview',
   'background_check': 'onboarding',
+  'reference_check': 'onboarding',
   'hired': 'onboarding',
   'onboarding': 'onboarding',
+  'offer_made': 'onboarding',
+  'offer_accepted': 'onboarding',
   'not_selected': 'not_hired',
   'not_hired': 'not_hired',
   'rejected': 'not_hired',
-  'withdrawn': 'withdrawn'
+  'declined': 'not_hired',
+  'withdrawn': 'withdrawn',
+  'candidate_withdrew': 'withdrawn'
 };
 
 const normalizeStatus = (status: string): string => {
-  return STATUS_MAPPING[status?.toLowerCase()] || status;
+  return STATUS_MAPPING[status?.toLowerCase()] || status?.toLowerCase() || 'applied';
 };
 
 // Status categories for enhanced counters
 const STATUS_CATEGORIES: Record<string, string[]> = {
   new_applications: ['applied'],
+  screening: ['screening'],
+  shortlisted: ['shortlisted'],
   first_interview: ['first_interview'],
   second_interview: ['second_interview'],
+  final_interview: ['final_interview'],
   onboarding: ['onboarding'],
   not_hired: ['not_hired'],
   withdrawn: ['withdrawn']
@@ -281,8 +304,11 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   const getStatusCounts = () => {
     const counts: Record<string, number> = {
       new_applications: 0,
+      screening: 0,
+      shortlisted: 0,
       first_interview: 0,
       second_interview: 0,
+      final_interview: 0,
       onboarding: 0,
       not_hired: 0,
       withdrawn: 0
@@ -319,6 +345,20 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       color: 'bg-green-100 text-green-700 border-green-200'
     },
     { 
+      id: 'screening', 
+      label: 'Screening', 
+      icon: Search, 
+      count: statusCounts.screening,
+      color: 'bg-purple-100 text-purple-700 border-purple-200'
+    },
+    { 
+      id: 'shortlisted', 
+      label: 'Shortlisted', 
+      icon: CheckCircle, 
+      count: statusCounts.shortlisted,
+      color: 'bg-indigo-100 text-indigo-700 border-indigo-200'
+    },
+    { 
       id: 'first_interview', 
       label: '1st Interview', 
       icon: Users, 
@@ -333,11 +373,18 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
       color: 'bg-orange-100 text-orange-700 border-orange-200'
     },
     { 
+      id: 'final_interview', 
+      label: 'Final Interview', 
+      icon: Users, 
+      count: statusCounts.final_interview,
+      color: 'bg-pink-100 text-pink-700 border-pink-200'
+    },
+    { 
       id: 'onboarding', 
       label: 'Onboarding', 
       icon: CheckCircle, 
       count: statusCounts.onboarding,
-      color: 'bg-blue-100 text-blue-700 border-blue-200'
+      color: 'bg-emerald-100 text-emerald-700 border-emerald-200'
     },
     { 
       id: 'not_hired', 
@@ -486,8 +533,11 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   const getStatusDisplayName = (status: string) => {
     const statusMap: Record<string, string> = {
       'applied': 'Applied',
+      'screening': 'Screening',
+      'shortlisted': 'Shortlisted',
       'first_interview': '1st Interview',
       'second_interview': '2nd Interview',
+      'final_interview': 'Final Interview',
       'onboarding': 'Onboarding',
       'not_hired': 'Not Hired',
       'withdrawn': 'Withdrawn'
@@ -498,22 +548,17 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       'applied': 'bg-green-100 text-green-800',
+      'screening': 'bg-purple-100 text-purple-800',
+      'shortlisted': 'bg-indigo-100 text-indigo-800',
       'first_interview': 'bg-yellow-100 text-yellow-800',
       'second_interview': 'bg-orange-100 text-orange-800',
-      'onboarding': 'bg-blue-100 text-blue-800',
+      'final_interview': 'bg-pink-100 text-pink-800',
+      'onboarding': 'bg-emerald-100 text-emerald-800',
       'not_hired': 'bg-red-100 text-red-800',
       'withdrawn': 'bg-gray-100 text-gray-800'
     };
     return colorMap[status] || 'bg-gray-100 text-gray-800';
   };
-
-  // Auto-hide alerts after 5 seconds
-  useEffect(() => {
-    if (showAlert) {
-      const timer = setTimeout(() => setShowAlert(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [showAlert]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -645,7 +690,7 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(application.applied_at).toLocaleDateString()}
+                        {new Date(application.applied_at || application.submission_date || application.created_at || '').toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
@@ -716,7 +761,9 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                     )}
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm">Applied: {new Date(selectedCandidate.applied_at).toLocaleDateString()}</span>
+                      <span className="text-sm">
+                        Applied: {new Date(selectedCandidate.applied_at || selectedCandidate.submission_date || selectedCandidate.created_at || '').toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -782,8 +829,11 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
                     { value: 'applied', label: 'Applied', color: 'bg-green-100 hover:bg-green-200 text-green-800' },
+                    { value: 'screening', label: 'Screening', color: 'bg-purple-100 hover:bg-purple-200 text-purple-800' },
+                    { value: 'shortlisted', label: 'Shortlisted', color: 'bg-indigo-100 hover:bg-indigo-200 text-indigo-800' },
                     { value: 'first_interview', label: '1st Interview', color: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800' },
                     { value: 'second_interview', label: '2nd Interview', color: 'bg-orange-100 hover:bg-orange-200 text-orange-800' },
+                    { value: 'final_interview', label: 'Final Interview', color: 'bg-pink-100 hover:bg-pink-200 text-pink-800' },
                     { value: 'background_check', label: 'Background Check', color: 'bg-blue-100 hover:bg-blue-200 text-blue-800' },
                     { value: 'hired', label: 'Hired', color: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' },
                     { value: 'not_hired', label: 'Not Hired', color: 'bg-red-100 hover:bg-red-200 text-red-800' },
@@ -908,8 +958,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
         description: editingJob.description,
         requirements: editingJob.requirements,
         benefits: editingJob.benefits || '',
+        posted: editingJob.posted,
         status: editingJob.posted ? 'published' : 'draft'
-      } : formData;
+      } : {
+        ...formData,
+        status: formData.posted ? 'published' : 'draft'
+      };
 
       const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
       const method = editingJob ? 'PUT' : 'POST';
@@ -1011,12 +1065,16 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     try {
       console.log(`🔄 Toggling job ${jobId} status from ${currentStatus} to ${!currentStatus}`);
       
+      const newStatus = !currentStatus;
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ posted: !currentStatus }),
+        body: JSON.stringify({ 
+          posted: newStatus,
+          status: newStatus ? 'published' : 'draft'
+        }),
       });
 
       const result = await response.json();
@@ -1027,9 +1085,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
         await fetchJobs();
         setShowAlert({ 
           type: 'success', 
-          message: `Job ${!currentStatus ? 'published' : 'unpublished'} successfully!` 
+          message: `Job ${newStatus ? 'published to careers page' : 'unpublished from careers page'} successfully!` 
         });
-        console.log(`✅ Job ${jobId} ${!currentStatus ? 'published' : 'unpublished'}`);
+        console.log(`✅ Job ${jobId} ${newStatus ? 'published' : 'unpublished'}`);
       } else {
         throw new Error(result.error || 'Failed to update job status');
       }
@@ -1106,26 +1164,35 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Manage Job Postings</h1>
-          <button
-            onClick={() => {
-              setEditingJob(null);
-              setFormData({
-                title: '',
-                department: '',
-                location: '',
-                employment_type: 'full_time',
-                salary_range: '',
-                description: '',
-                requirements: '',
-                posted: true
-              });
-              setShowJobForm(true);
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create New Job</span>
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => window.open('/careers', '_blank')}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Globe className="w-4 h-4" />
+              <span>View Careers Page</span>
+            </button>
+            <button
+              onClick={() => {
+                setEditingJob(null);
+                setFormData({
+                  title: '',
+                  department: '',
+                  location: '',
+                  employment_type: 'full_time',
+                  salary_range: '',
+                  description: '',
+                  requirements: '',
+                  posted: true
+                });
+                setShowJobForm(true);
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Job</span>
+            </button>
+          </div>
         </div>
 
         {/* Jobs List */}
@@ -1168,13 +1235,20 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          job.posted 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {job.posted ? 'Published' : 'Draft'}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            job.posted 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {job.posted ? 'Published' : 'Draft'}
+                          </span>
+                          {job.posted && (
+                            <div title="Live on careers page">
+                              <Globe className="w-4 h-4 text-green-600" />
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
@@ -1192,7 +1266,17 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                               : 'bg-green-100 text-green-700 hover:bg-green-200'
                           }`}
                         >
-                          {job.posted ? 'Unpublish' : 'Publish'}
+                          {job.posted ? (
+                            <>
+                              <Eye className="w-4 h-4 mr-1" />
+                              Hide from Site
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="w-4 h-4 mr-1" />
+                              Publish to Site
+                            </>
+                          )}
                         </button>
                         <button
                           onClick={() => handleDelete(job.id)}
@@ -1362,7 +1446,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                 </div>
 
                 <div className="md:col-span-2">
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <input
                       id="posted"
                       name="posted"
@@ -1371,8 +1455,9 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                       onChange={handleInputChange}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <label htmlFor="posted" className="ml-2 block text-sm text-gray-900">
-                      Publish immediately to careers page
+                    <label htmlFor="posted" className="block text-sm text-gray-900">
+                      <div className="font-medium">Publish to Careers Page</div>
+                      <div className="text-xs text-gray-600">Make this job visible to applicants on your public careers page</div>
                     </label>
                   </div>
                 </div>

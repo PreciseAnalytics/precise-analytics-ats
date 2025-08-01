@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
-          a.position_applying_for, a.status, a.submission_date, a.total_experience,
+          a.position_applying_for, a.status, a.submission_date,a.applied_at AS applied_at, a.total_experience,
           a.highest_education, a.expected_salary_range, a.why_interested,
           a.resume_url, a.cover_letter_url, a.created_at,
           j.title as job_title, j.department as job_department
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
-          a.position_applying_for, a.status, a.submission_date, a.total_experience,
+          a.position_applying_for, a.status, a.submission_date, a.applied_at AS applied_at, a.total_experience,
           a.highest_education, a.expected_salary_range, a.why_interested,
           a.resume_url, a.cover_letter_url, a.created_at,
           j.title as job_title, j.department as job_department
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
-          a.position_applying_for, a.status, a.submission_date, a.total_experience,
+          a.position_applying_for, a.status, a.submission_date, a.applied_at AS applied_at,, a.total_experience,
           a.highest_education, a.expected_salary_range, a.why_interested,
           a.resume_url, a.cover_letter_url, a.created_at,
           j.title as job_title, j.department as job_department
@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
       applications = await sql`
         SELECT 
           a.id, a.job_id, a.first_name, a.last_name, a.email, a.phone,
-          a.position_applying_for, a.status, a.submission_date, a.total_experience,
+          a.position_applying_for, a.status, a.submission_date, a.applied_at AS applied_at, a.total_experience,
           a.highest_education, a.expected_salary_range, a.why_interested,
           a.resume_url, a.cover_letter_url, a.created_at,
           j.title as job_title, j.department as job_department
