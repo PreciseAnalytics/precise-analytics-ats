@@ -201,26 +201,25 @@ export async function PUT(
     
     // Update with provided values or keep existing ones
     const result = await sql`
-      UPDATE jobs 
-      SET 
-        title = ${jobData.title !== undefined ? jobData.title : current.title},
-        department = ${jobData.department !== undefined ? jobData.department : current.department || ''},
-        location = ${jobData.location !== undefined ? jobData.location : current.location || ''},
-        type = ${jobData.type !== undefined ? jobData.type : current.type || 'full_time'},
-        salary_range = ${jobData.salary_range !== undefined ? jobData.salary_range : current.salary_range || ''},
-        description = ${jobData.description !== undefined ? jobData.description : current.description},
-        requirements = ${jobData.requirements !== undefined ? jobData.requirements : current.requirements || ''},
-        benefits = ${jobData.benefits !== undefined ? jobData.benefits : current.benefits || ''},
-        status = ${jobData.status !== undefined ? jobData.status : current.status || 'active'},
-        remote_option = ${jobData.remote_option !== undefined ? jobData.remote_option : current.remote_option || false},
-        expires_at = ${jobData.expires_at !== undefined ? jobData.expires_at : current.expires_at},
-        priority = ${jobData.priority !== undefined ? jobData.priority : current.priority || 'medium'},
-        updated_at = NOW(),
-        posted = ${jobData.posted !== undefined ? jobData.posted : current.posted}
-      WHERE id = ${jobId}
-      RETURNING *
-    `;
-
+  UPDATE jobs 
+    SET 
+      title = ${jobData.title !== undefined ? jobData.title : current.title},
+      department = ${jobData.department !== undefined ? jobData.department : current.department || ''},
+      location = ${jobData.location !== undefined ? jobData.location : current.location || ''},
+      type = ${jobData.type !== undefined ? jobData.type : current.type || 'full_time'},
+      salary_range = ${jobData.salary_range !== undefined ? jobData.salary_range : current.salary_range || ''},
+      description = ${jobData.description !== undefined ? jobData.description : current.description},
+      requirements = ${jobData.requirements !== undefined ? jobData.requirements : current.requirements || ''},
+      benefits = ${jobData.benefits !== undefined ? jobData.benefits : current.benefits || ''},
+      status = ${jobData.status !== undefined ? jobData.status : current.status || 'active'},    // ← CHANGE THIS LINE
+      remote_option = ${jobData.remote_option !== undefined ? jobData.remote_option : current.remote_option || false},
+      expires_at = ${jobData.expires_at !== undefined ? jobData.expires_at : current.expires_at},
+      priority = ${jobData.priority !== undefined ? jobData.priority : current.priority || 'medium'},
+      updated_at = NOW(),
+      posted = ${jobData.posted !== undefined ? jobData.posted : current.posted}
+    WHERE id = ${jobId}
+    RETURNING *
+  `;
     console.log('✅ Job updated:', result[0].title, '- Status:', result[0].status, '- Posted:', result[0].posted);
 
     // Recalculate application count for the updated job

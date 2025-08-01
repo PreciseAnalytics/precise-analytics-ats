@@ -870,7 +870,8 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   );
 };
 
-type JobStatus = 'active' | 'inactive' | 'expired' | 'archived' | 'deactivated' | 'draft';
+// Type definitions
+type JobStatus = 'active' | 'inactive' | 'expired' | 'draft' | 'archived' | 'deactivated';
 
 // Normalize job status for backward compatibility
 const getNormalizedJobStatus = (job: any): JobStatus => {
@@ -887,6 +888,8 @@ const getNormalizedJobStatus = (job: any): JobStatus => {
   }
   return 'inactive';
 };
+
+
 
 // JobManagementPage Component
 const JobManagementPage = ({ onNavigate }: NavigationProps) => {
@@ -1104,6 +1107,8 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     }
   };
 
+  
+
   const handleSubmit = async () => {
     try {
       setIsSubmittingJob(true);
@@ -1120,12 +1125,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
             benefits: editingJob.benefits || '',
             auto_expire_days: editingJob.auto_expire_days || 30,
             max_applications: editingJob.max_applications || 50,
-            status: editingJob.posted ? 'active' : 'draft',
+            status: editingJob.posted ? 'published' : 'draft',  // ✅ CHANGED: 'active' to 'published'
             posted_date: editingJob.posted ? editingJob.posted_date || new Date().toISOString() : null,
           }
         : {
             ...formData,
-            status: formData.posted ? 'active' : 'draft',
+            status: formData.posted ? 'published' : 'draft',  // ✅ CHANGED: 'active' to 'published'
             posted_date: formData.posted ? new Date().toISOString() : null,
           };
 
@@ -1195,7 +1200,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       benefits: job.benefits || '',
       auto_expire_days: job.auto_expire_days || 30,
       max_applications: job.max_applications || 50,
-      posted: job.status === 'active' || job.posted === true,
+      posted: job.status === 'published' || job.posted === true,  // ✅ CHANGED: 'active' to 'published'
     });
 
     setShowJobForm(true);
@@ -1213,7 +1218,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
       if (result.success) {
         await fetchJobs();
-        setActiveJobTab('all'); // FIXED: replaces bad reference to newStatus
+        setActiveJobTab('all');
         setShowAlert({ type: 'success', message: 'Job deleted successfully!' });
       } else {
         throw new Error(result.error || 'Failed to delete job');
@@ -1228,42 +1233,43 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   };
 
   const updateJobStatus = async (jobId: string, newStatus: string) => {
-  try {
-    setLoading(true);
-    const updateData: any = { status: newStatus };
-    if (newStatus === 'deactivated') {
-      updateData.posted = false; // Set posted to false for deactivated jobs
-    } else if (newStatus === 'active') {
-      updateData.posted = true;
-      updateData.posted_date = new Date().toISOString();
+    try {
+      setLoading(true);
+      const updateData: any = { status: newStatus };
+      if (newStatus === 'deactivated') {
+        updateData.posted = false; // Set posted to false for deactivated jobs
+      } else if (newStatus === 'published') {  // ✅ CHANGED: 'active' to 'published'
+        updateData.posted = true;
+        updateData.posted_date = new Date().toISOString();
+      }
+      console.log('Updating job status:', { jobId, updateData }); // Debug log
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Failed to update job status');
+
+      await fetchJobs(); // Refresh job list
+
+      setShowAlert({
+        type: 'success',
+        message: `Job has been ${newStatus === 'published' ? 'reactivated and published' : 'updated'} successfully!`,  // ✅ CHANGED: 'active' to 'published'
+      }); // Refresh job list
+    } catch (error) {
+      console.error('Error updating job status:', error);
+      setShowAlert({ type: 'error', message: `Failed to update job status: ${error.message}` });
+    } finally {
+      setLoading(false);
     }
-    console.log('Updating job status:', { jobId, updateData }); // Debug log
-    const response = await fetch(`/api/jobs/${jobId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData),
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error || 'Failed to update job status');
-
-    await fetchJobs(); // Refresh job list
-
-    setShowAlert({
-      type: 'success',
-      message: `Job has been ${newStatus === 'active' ? 'reactivated and published' : 'updated'} successfully!`,
-    }); // Refresh job list
-  } catch (error) {
-    console.error('Error updating job status:', error);
-    setShowAlert({ type: 'error', message: `Failed to update job status: ${error.message}` });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const reactivateJob = async (jobId: string) => {
     if (!confirm('Reactivate this job and publish it to the careers page?')) return;
-    await updateJobStatus(jobId, 'active');
+    await updateJobStatus(jobId, 'published');  // ✅ CHANGED: 'active' to 'published'
   };
+
 
   const deactivateJob = async (jobId: string) => {
     if (!confirm('Deactivate this job and remove it from the careers page? It will be kept in your job repository.')) return;
@@ -1518,7 +1524,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             ) : job.status === 'draft' ? (
                               <button
                                 title="Publish Job"
-                                onClick={() => updateJobStatus(job.id, 'active')}
+                                onClick={() => updateJobStatus(job.id, 'published')}  // ✅ CHANGED: 'active' to 'published'
                                 className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                               >
                                 <Globe className="w-4 h-4 mr-1" />
