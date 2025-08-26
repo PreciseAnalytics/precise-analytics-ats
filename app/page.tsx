@@ -1,8 +1,9 @@
+//"C:\Users\owner\Documents\precise-analytics-ats\app\page.tsx"
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink, Filter, ChevronDown, Eye, Mail, Edit3, Download, Globe, Linkedin, X, Phone, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Building, Settings, Plus } from 'lucide-react';
-
+import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink, Filter, ChevronDown, Eye, Mail, Edit3, Download, Globe, MapPin, X, Briefcase, Phone, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Building, Settings, Plus, Archive, Trash2 } from 'lucide-react';
 // Type definitions
 type Application = {
   id: string;
@@ -1207,11 +1208,17 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   };
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this job posting?')) return;
+    if (!confirm('Are you sure you want to permanently delete this job posting? This action cannot be undone and will remove all associated applications.')) return;
 
     try {
+      setLoading(true);
+      console.log('🗑️ Permanently deleting job:', jobId);
+
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       const result = await response.json();
@@ -1219,16 +1226,55 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       if (result.success) {
         await fetchJobs();
         setActiveJobTab('all');
-        setShowAlert({ type: 'success', message: 'Job deleted successfully!' });
+        setShowAlert({ type: 'success', message: 'Job permanently deleted!' });
+        console.log('✅ Job deleted:', jobId);
       } else {
         throw new Error(result.error || 'Failed to delete job');
       }
     } catch (error) {
-      console.error('Error deleting job:', error);
+      console.error('❌ Error deleting job:', error);
       setShowAlert({
         type: 'error',
         message: `Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleArchive = async (jobId: string) => {
+    if (!confirm('Are you sure you want to archive this job posting? It will be hidden from the careers page but kept in your repository.')) return;
+
+    try {
+      setLoading(true);
+      console.log('🗄️ Archiving job:', jobId);
+
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'archived', posted: false }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await fetchJobs();
+        setActiveJobTab('archived');
+        setShowAlert({ type: 'success', message: 'Job archived successfully!' });
+        console.log('✅ Job archived:', jobId);
+      } else {
+        throw new Error(result.error || 'Failed to archive job');
+      }
+    } catch (error) {
+      console.error('❌ Error archiving job:', error);
+      setShowAlert({
+        type: 'error',
+        message: `Failed to archive job: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1238,7 +1284,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       const updateData: any = { status: newStatus };
       if (newStatus === 'deactivated') {
         updateData.posted = false; // Set posted to false for deactivated jobs
-      } else if (newStatus === 'published') {  // ✅ CHANGED: 'active' to 'published'
+      } else if (newStatus === 'published') {
         updateData.posted = true;
         updateData.posted_date = new Date().toISOString();
       }
@@ -1255,11 +1301,11 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
       setShowAlert({
         type: 'success',
-        message: `Job has been ${newStatus === 'published' ? 'reactivated and published' : 'updated'} successfully!`,  // ✅ CHANGED: 'active' to 'published'
-      }); // Refresh job list
+        message: `Job has been ${newStatus === 'published' ? 'reactivated and published' : 'deactivated'} successfully!`,
+      });
     } catch (error) {
       console.error('Error updating job status:', error);
-      setShowAlert({ type: 'error', message: `Failed to update job status: ${error.message}` });
+      setShowAlert({ type: 'error', message: `Failed to update job status: ${error instanceof Error ? error.message : 'Unknown error'}` });
     } finally {
       setLoading(false);
     }
@@ -1504,14 +1550,24 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             </button>
 
                             {statusInfo.status === 'active' ? (
-                              <button
-                                title="Deactivate Job"
-                                onClick={() => deactivateJob(job.id)}
-                                className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                <span>Deactivate</span>
-                              </button>
+                              <>
+                                <button
+                                  title="Deactivate Job"
+                                  onClick={() => deactivateJob(job.id)}
+                                  className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  <span>Deactivate</span>
+                                </button>
+                                <button
+                                  title="Archive Job"
+                                  onClick={() => handleArchive(job.id)}
+                                  className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                >
+                                  <Archive className="w-4 h-4 mr-1" />
+                                  <span>Archive</span>
+                                </button>
+                              </>
                             ) : statusInfo.canReactivate ? (
                               <button
                                 title="Reactivate Job"
@@ -1524,7 +1580,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                             ) : job.status === 'draft' ? (
                               <button
                                 title="Publish Job"
-                                onClick={() => updateJobStatus(job.id, 'published')}  // ✅ CHANGED: 'active' to 'published'
+                                onClick={() => updateJobStatus(job.id, 'published')}
                                 className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                               >
                                 <Globe className="w-4 h-4 mr-1" />
@@ -1532,14 +1588,16 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
                               </button>
                             ) : null}
 
-                            <button
-                              title="Archive Job"
-                              onClick={() => updateJobStatus(job.id, 'archived')}
-                              className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              <span>Archive</span>
-                            </button>
+                            {(statusInfo.status === 'archived' || statusInfo.status === 'deactivated' || statusInfo.status === 'expired' || statusInfo.status === 'draft') && (
+                              <button
+                                title="Delete Job"
+                                onClick={() => handleDelete(job.id)}
+                                className="inline-flex items-center px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                <span>Delete</span>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -238,13 +238,14 @@ export async function PUT(
 }
 
 // DELETE - Archive job (soft delete)
+// DELETE - Permanently delete job and associated applications
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const jobId = params.id;
-    console.log('🗑️ Archiving job:', jobId);
+    console.log('🗑️ Permanently deleting job:', jobId);
 
     if (!jobId) {
       return NextResponse.json({
@@ -256,14 +257,29 @@ export async function DELETE(
       });
     }
 
-    // FIXED: Use proper parameterized query
+    // Validate job ID format (basic UUID check)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jobId)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid job ID format'
+      }, { 
+        status: 400, 
+        headers: corsHeaders 
+      });
+    }
+
+    // Delete associated applications first
+    await sql`
+      DELETE FROM applications 
+      WHERE job_id = ${jobId}
+    `;
+
+    // Delete the job
     const result = await sql`
-      UPDATE jobs 
-      SET 
-        status = 'archived', 
-        updated_at = NOW()
+      DELETE FROM jobs 
       WHERE id = ${jobId}
-      RETURNING id, title, status
+      RETURNING id, title
     `;
 
     if (result.length === 0) {
@@ -276,12 +292,11 @@ export async function DELETE(
       });
     }
 
-    console.log('✅ Job archived successfully:', result[0].title);
+    console.log('✅ Job permanently deleted:', jobId, '- Title:', result[0].title);
 
     return NextResponse.json({
       success: true,
-      message: 'Job archived successfully',
-      job: result[0]
+      message: 'Job permanently deleted'
     }, { 
       headers: corsHeaders 
     });
@@ -290,10 +305,10 @@ export async function DELETE(
     console.error('❌ Job deletion error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to archive job',
+      error: 'Failed to delete job',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, {
-      status: 500,
+      status: error.message === 'Job not found' ? 404 : 500,
       headers: corsHeaders
     });
   }
