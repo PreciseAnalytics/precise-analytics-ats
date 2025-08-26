@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import HRUserManagement from '../components/HRUserManagement';
 import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink, Filter, ChevronDown, Eye, Mail, Edit3, Download, Globe, MapPin, X, Briefcase, Phone, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Building, Settings, Plus, Archive, Trash2 } from 'lucide-react';
 // Type definitions
 type Application = {
@@ -263,6 +264,7 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
   const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState<Alert>(null);
+  const [showHRManagement, setShowHRManagement] = useState(false);
 
   // Status counts based on new categories
   const getStatusCounts = () => {
