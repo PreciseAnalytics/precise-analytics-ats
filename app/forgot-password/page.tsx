@@ -1,192 +1,145 @@
-// app/api/auth/forgot-password/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import { Pool } from 'pg';
+'use client';
 
-// Initialize PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-};
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
-}
-
-export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   
-  try {
-    const { email } = await request.json();
+  const router = useRouter();
 
-    if (!email) {
-      return NextResponse.json(
-        { error: 'Email address is required' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
-      );
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
 
-    // Validate email format
+    // Client-side email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Please enter a valid email address' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
-      );
+      setError('Please enter a valid email address');
+      setIsLoading(false);
+      return;
     }
 
-    // Check if user exists in applicant_accounts table
-    const userQuery = 'SELECT id, email, first_name, last_name, email_verified FROM applicant_accounts WHERE email = $1';
-    const userResult = await client.query(userQuery, [email.toLowerCase()]);
-
-    // Always return success to prevent email enumeration attacks
-    // But only send email if user actually exists
-    if (userResult.rows.length > 0) {
-      const user = userResult.rows[0];
-
-      // Check if user's email is verified
-      if (!user.email_verified) {
-        console.log('Password reset attempted for unverified email:', email);
-        // Still return success but don't send email
-        return NextResponse.json(
-          { 
-            message: 'If an account with that email exists, you will receive a password reset link shortly.',
-            sent: false
-          },
-          { 
-            status: 200,
-            headers: corsHeaders
-          }
-        );
-      }
-
-      // Generate password reset token
-      const resetToken = jwt.sign(
-        {
-          userId: user.id.toString(),
-          email: user.email,
-          type: 'password_reset'
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        JWT_SECRET,
-        { expiresIn: '1h' } // Token expires in 1 hour
-      );
+        body: JSON.stringify({ email }),
+      });
 
-      // Create reset link
-      const resetLink = `${process.env.NODE_ENV === 'production' 
-        ? 'https://precise-analytics-ats.vercel.app' 
-        : 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+      const data = await response.json();
 
-      // In a real application, you would send this email using a service like:
-      // - SendGrid
-      // - AWS SES  
-      // - Nodemailer with SMTP
-      // - Resend
-      
-      // For now, we'll log the reset link and simulate sending
-      console.log('Password reset requested for:', email);
-      console.log('Reset link (would be emailed):', resetLink);
-
-      // TODO: Replace this with actual email sending
-      const emailContent = `
-        Hi ${user.first_name},
-
-        You requested a password reset for your Precise Analytics ATS account.
-
-        Click the link below to reset your password:
-        ${resetLink}
-
-        This link will expire in 1 hour for security reasons.
-
-        If you didn't request this password reset, please ignore this email.
-
-        Best regards,
-        The Precise Analytics Team
-      `;
-
-      console.log('Email content (would be sent):', emailContent);
-
-      // Here you would actually send the email:
-      /*
-      try {
-        await sendEmail({
-          to: user.email,
-          subject: 'Password Reset - Precise Analytics ATS',
-          text: emailContent,
-          html: emailContent.replace(/\n/g, '<br>')
-        });
-        console.log('Password reset email sent successfully to:', email);
-      } catch (emailError) {
-        console.error('Failed to send password reset email:', emailError);
-        return NextResponse.json(
-          { error: 'Failed to send reset email. Please try again.' },
-          { 
-            status: 500,
-            headers: corsHeaders
-          }
-        );
+      if (response.ok) {
+        setSuccess(true);
+      } else {
+        setError(data.error || 'Failed to send reset email');
       }
-      */
-
-      // Store reset request in database for audit purposes (optional)
-      try {
-        const auditQuery = `
-          INSERT INTO password_reset_requests (user_id, email, requested_at, expires_at)
-          VALUES ($1, $2, NOW(), NOW() + INTERVAL '1 hour')
-          ON CONFLICT (user_id) DO UPDATE SET
-            requested_at = NOW(),
-            expires_at = NOW() + INTERVAL '1 hour'
-        `;
-        
-        // Only execute if the table exists
-        // await client.query(auditQuery, [user.id, email]);
-      } catch (auditError) {
-        // Table might not exist yet - that's fine
-        console.log('Audit logging skipped (table might not exist)');
-      }
-    } else {
-      console.log('Password reset attempted for non-existent email:', email);
+    } catch (error) {
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Always return success message to prevent email enumeration
-    return NextResponse.json(
-      { 
-        message: 'If an account with that email exists, you will receive a password reset link shortly.',
-        sent: true
-      },
-      { 
-        status: 200,
-        headers: corsHeaders
-      }
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Check Your Email</h1>
+          <p className="text-gray-600 mb-6">
+            If an account with that email exists, you will receive a password reset link shortly.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Return to Sign In
+            </button>
+            <button
+              onClick={() => {
+                setSuccess(false);
+                setEmail('');
+              }}
+              className="w-full text-blue-600 hover:text-blue-800 py-2 px-4 rounded-md border border-blue-200 hover:border-blue-300 transition-colors"
+            >
+              Send Another Request
+            </button>
+          </div>
+        </div>
+      </div>
     );
-
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error. Please try again.' },
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
-    );
-  } finally {
-    client.release();
   }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <Mail className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900">Forgot Your Password?</h1>
+          <p className="text-gray-600 mt-2">
+            Enter your email address and we'll send you a link to reset your password.
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded mb-6">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your email address"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading || !email}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Sending Reset Link...
+              </>
+            ) : (
+              <>
+                <Mail className="w-4 h-4 mr-2" />
+                Send Reset Link
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => router.push('/')}
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

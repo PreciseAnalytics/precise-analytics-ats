@@ -1,5 +1,3 @@
-//"C:\Users\owner\Documents\precise-analytics-ats\app\page.tsx"
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -114,7 +112,6 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
     email: '',
     password: ''
   });
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -144,14 +141,6 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = () => {
-    const subject = 'ATS Password Reset Request';
-    const body = 'Please reset my ATS password for careers@preciseanalytics.io';
-    const mailtoLink = `mailto:admin@preciseanalytics.io?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
-    setShowForgotPassword(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -241,12 +230,12 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
             </button>
 
             <div className="text-center">
-              <button
-                onClick={() => setShowForgotPassword(true)}
+              <a
+                href="/forgot-password"
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
               >
                 Forgot your password?
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -261,32 +250,6 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
           </p>
         </div>
       </div>
-
-      {/* Forgot Password Modal */}
-      {showForgotPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reset Password</h3>
-            <p className="text-gray-600 mb-6">
-              Click the button below to send a password reset request to the administrator.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleForgotPassword}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Send Reset Request
-              </button>
-              <button
-                onClick={() => setShowForgotPassword(false)}
-                className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -481,8 +444,8 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
         const normalized = normalizeStatus(newStatus);
 
         // Debug logs
-        console.log('✅ New status:', newStatus);
-        console.log('✅ Normalized:', normalized);
+        console.log('New status:', newStatus);
+        console.log('Normalized:', normalized);
 
         // Map to matching tab
         const newTab = Object.entries(STATUS_CATEGORIES).find(([_, list]) =>
@@ -815,7 +778,8 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                         rel="noopener noreferrer"
                         className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
                       >
-
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="text-sm">LinkedIn Profile</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
@@ -1060,7 +1024,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching jobs...');
+      console.log('Fetching jobs...');
 
       const response = await fetch('/api/jobs?' + new Date().getTime(), {
         method: 'GET',
@@ -1075,12 +1039,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
       if (data.success) {
         setJobs(data.jobs);
-        console.log(`✅ Fetched ${data.jobs.length} jobs`);
+        console.log(`Fetched ${data.jobs.length} jobs`);
       } else {
         throw new Error(data.error || 'Failed to fetch jobs');
       }
     } catch (error) {
-      console.error('❌ Error fetching jobs:', error);
+      console.error('Error fetching jobs:', error);
       setShowAlert({ type: 'error', message: 'Failed to load jobs. Please try again.' });
     } finally {
       setLoading(false);
@@ -1125,19 +1089,19 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
             benefits: editingJob.benefits || '',
             auto_expire_days: editingJob.auto_expire_days || 30,
             max_applications: editingJob.max_applications || 50,
-            status: editingJob.posted ? 'published' : 'draft',  // ✅ CHANGED: 'active' to 'published'
+            status: editingJob.posted ? 'published' : 'draft',
             posted_date: editingJob.posted ? editingJob.posted_date || new Date().toISOString() : null,
           }
         : {
             ...formData,
-            status: formData.posted ? 'published' : 'draft',  // ✅ CHANGED: 'active' to 'published'
+            status: formData.posted ? 'published' : 'draft',
             posted_date: formData.posted ? new Date().toISOString() : null,
           };
 
       const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
       const method = editingJob ? 'PUT' : 'POST';
 
-      console.log(`🔄 ${editingJob ? 'Updating' : 'Creating'} job:`, dataToSend);
+      console.log(`${editingJob ? 'Updating' : 'Creating'} job:`, dataToSend);
 
       const response = await fetch(url, {
         method,
@@ -1148,7 +1112,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       });
 
       const result = await response.json();
-      console.log('📝 Job API response:', result);
+      console.log('Job API response:', result);
 
       if (result.success) {
         await fetchJobs();
@@ -1170,12 +1134,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
           type: 'success',
           message: editingJob ? 'Job updated successfully!' : 'Job created successfully!',
         });
-        console.log(`✅ Job ${editingJob ? 'updated' : 'created'} successfully`);
+        console.log(`Job ${editingJob ? 'updated' : 'created'} successfully`);
       } else {
         throw new Error(result.error || 'Failed to save job');
       }
     } catch (error) {
-      console.error('❌ Error saving job:', error);
+      console.error('Error saving job:', error);
       setShowAlert({
         type: 'error',
         message: `Failed to save job: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1186,7 +1150,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   };
 
   const handleEdit = (job: any) => {
-    console.log('📝 Editing job:', job);
+    console.log('Editing job:', job);
 
     setEditingJob({
       ...job,
@@ -1200,7 +1164,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
       benefits: job.benefits || '',
       auto_expire_days: job.auto_expire_days || 30,
       max_applications: job.max_applications || 50,
-      posted: job.status === 'published' || job.posted === true,  // ✅ CHANGED: 'active' to 'published'
+      posted: job.status === 'published' || job.posted === true,
     });
 
     setShowJobForm(true);
@@ -1211,7 +1175,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
     try {
       setLoading(true);
-      console.log('🗑️ Permanently deleting job:', jobId);
+      console.log('Permanently deleting job:', jobId);
 
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'DELETE',
@@ -1226,12 +1190,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
         await fetchJobs();
         setActiveJobTab('all');
         setShowAlert({ type: 'success', message: 'Job permanently deleted!' });
-        console.log('✅ Job deleted:', jobId);
+        console.log('Job deleted:', jobId);
       } else {
         throw new Error(result.error || 'Failed to delete job');
       }
     } catch (error) {
-      console.error('❌ Error deleting job:', error);
+      console.error('Error deleting job:', error);
       setShowAlert({
         type: 'error',
         message: `Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1246,7 +1210,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
     try {
       setLoading(true);
-      console.log('🗄️ Archiving job:', jobId);
+      console.log('Archiving job:', jobId);
 
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: 'PUT',
@@ -1262,12 +1226,12 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
         await fetchJobs();
         setActiveJobTab('archived');
         setShowAlert({ type: 'success', message: 'Job archived successfully!' });
-        console.log('✅ Job archived:', jobId);
+        console.log('Job archived:', jobId);
       } else {
         throw new Error(result.error || 'Failed to archive job');
       }
     } catch (error) {
-      console.error('❌ Error archiving job:', error);
+      console.error('Error archiving job:', error);
       setShowAlert({
         type: 'error',
         message: `Failed to archive job: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1312,7 +1276,7 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
 
   const reactivateJob = async (jobId: string) => {
     if (!confirm('Reactivate this job and publish it to the careers page?')) return;
-    await updateJobStatus(jobId, 'published');  // ✅ CHANGED: 'active' to 'published'
+    await updateJobStatus(jobId, 'published');
   };
 
 
