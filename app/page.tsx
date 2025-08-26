@@ -815,8 +815,7 @@ const MainDashboard = ({ onNavigate }: NavigationProps) => {
                         rel="noopener noreferrer"
                         className="flex items-center space-x-2 text-blue-600 hover:text-blue-800"
                       >
-                        <Linkedin className="w-4 h-4" />
-                        <span className="text-sm">LinkedIn Profile</span>
+
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
