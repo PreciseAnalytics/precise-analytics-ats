@@ -1,232 +1,157 @@
-// app/api/auth/forgot-password/route.ts
+// app/api/auth/forgot-password/route.ts - Updated for HR Users Only
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
+import crypto from 'crypto';
 import { Resend } from 'resend';
 
-// Initialize PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-};
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
-}
-
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
-  
   try {
     const { email } = await request.json();
 
-    console.log('🔐 Password reset requested for:', email);
-
     if (!email) {
       return NextResponse.json(
-        { error: 'Email address is required' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
+        { error: 'Email is required' },
+        { status: 400 }
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Please enter a valid email address' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
+    const client = await pool.connect();
+
+    try {
+      // Find HR user by email
+      const result = await client.query(
+        `SELECT id, email, first_name, last_name, is_active, email_verified, password_set
+         FROM hr_users 
+         WHERE email = $1`,
+        [email.toLowerCase()]
       );
-    }
 
-    // Check if user exists in applicant_accounts table
-    const userQuery = 'SELECT id, email, first_name, last_name, email_verified FROM applicant_accounts WHERE email = $1';
-    const userResult = await client.query(userQuery, [email.toLowerCase()]);
+      // Always return success to prevent email enumeration
+      const successResponse = NextResponse.json({
+        success: true,
+        message: 'If an account exists with that email, you will receive password reset instructions.'
+      });
 
-    console.log('📊 User search result:', {
-      found: userResult.rows.length > 0,
-      email: email.toLowerCase()
-    });
-
-    // Always return success to prevent email enumeration attacks
-    // But only send email if user actually exists
-    if (userResult.rows.length > 0) {
-      const user = userResult.rows[0];
-
-      // Check if user's email is verified
-      if (!user.email_verified) {
-        console.log('⚠️ Password reset attempted for unverified email:', email);
-        // Still return success but don't send email
-        return NextResponse.json(
-          { 
-            message: 'If an account with that email exists, you will receive a password reset link shortly.',
-            sent: false
-          },
-          { 
-            status: 200,
-            headers: corsHeaders
-          }
-        );
+      if (result.rows.length === 0) {
+        return successResponse;
       }
 
-      // Generate password reset token
-      const resetToken = jwt.sign(
-        {
-          userId: user.id.toString(),
-          email: user.email,
-          type: 'password_reset'
-        },
-        JWT_SECRET,
-        { expiresIn: '1h' } // Token expires in 1 hour
+      const user = result.rows[0];
+
+      // Check if account is active and properly set up
+      if (!user.is_active || !user.email_verified || !user.password_set) {
+        return successResponse;
+      }
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+      // Store reset token
+      await client.query(
+        `UPDATE hr_users 
+         SET invitation_token = $1, invitation_expires_at = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [resetToken, resetExpires, user.id]
       );
 
-      // Create reset link
-      const resetLink = `${process.env.NODE_ENV === 'production' 
-        ? 'https://precise-analytics-ats.vercel.app' 
-        : 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+      // Log password reset request
+      await client.query(
+        `INSERT INTO hr_user_audit (hr_user_id, action, performed_by_email, details)
+         VALUES ($1, 'password_reset_requested', $2, $3)`,
+        [
+          user.id,
+          user.email,
+          JSON.stringify({
+            timestamp: new Date().toISOString(),
+            ip_address: request.ip || 'unknown'
+          })
+        ]
+      );
 
-      console.log('📧 Sending reset email to:', email);
+      // Send reset email
+      const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
-      // Send actual email using Resend
-      try {
-        const emailResult = await resend.emails.send({
-          from: 'Precise Analytics <noreply@preciseanalytics.io>',
-          to: [user.email],
-          subject: 'Password Reset - Precise Analytics ATS',
-          html: `
-            <!DOCTYPE html>
-            <html>
+      await resend.emails.send({
+        from: 'Precise Analytics ATS <noreply@preciseanalytics.io>',
+        to: user.email,
+        subject: 'Password Reset Request - Precise Analytics ATS',
+        html: `
+          <!DOCTYPE html>
+          <html>
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Password Reset</title>
+              <title>Password Reset Request</title>
             </head>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <div style="background: linear-gradient(45deg, #ff6b35, #f7931e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-size: 24px; font-weight: bold; margin-bottom: 10px;">
-                  Precise Analytics
-                </div>
-                <p style="color: white; margin: 0; font-size: 18px;">Password Reset Request</p>
+                <h1 style="color: white; margin: 0; font-size: 28px;">Precise Analytics</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">ATS Password Reset</p>
               </div>
               
-              <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-                <p>Hi ${user.first_name || 'there'},</p>
+              <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+                <h2 style="color: #495057; margin-bottom: 20px;">Password Reset Request</h2>
                 
-                <p>You requested a password reset for your Precise Analytics ATS account.</p>
+                <p style="margin-bottom: 20px;">Hello ${user.first_name},</p>
+                
+                <p style="margin-bottom: 20px;">
+                  We received a request to reset your password for your Precise Analytics ATS account. 
+                  If you made this request, click the button below to reset your password:
+                </p>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${resetLink}" 
-                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            color: white; 
-                            padding: 15px 30px; 
-                            text-decoration: none; 
-                            border-radius: 5px; 
-                            font-weight: bold;
-                            display: inline-block;">
-                    Reset Your Password
+                  <a href="${resetUrl}" 
+                     style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                    Reset My Password
                   </a>
                 </div>
                 
-                <p><strong>Important:</strong> This link will expire in 1 hour for security reasons.</p>
-                
-                <p>If you didn't request this password reset, please ignore this email. Your account remains secure.</p>
-                
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                
-                <p style="color: #666; font-size: 14px;">
-                  Best regards,<br>
-                  The Precise Analytics Team<br>
-                  <em>Minority-Owned • Veteran-Owned • SDVOSB Certified</em>
+                <p style="margin-bottom: 15px; font-size: 14px; color: #6c757d;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                <p style="word-break: break-all; font-size: 14px; color: #6c757d; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                  ${resetUrl}
                 </p>
                 
-                <p style="color: #999; font-size: 12px; margin-top: 20px;">
-                  If the button above doesn't work, copy and paste this link into your browser:<br>
-                  <span style="word-break: break-all;">${resetLink}</span>
-                </p>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+                  <p style="font-size: 14px; color: #6c757d; margin-bottom: 10px;">
+                    <strong>Security Notice:</strong>
+                  </p>
+                  <ul style="font-size: 14px; color: #6c757d; padding-left: 20px;">
+                    <li>This link will expire in 1 hour for security reasons</li>
+                    <li>If you didn't request this reset, please ignore this email</li>
+                    <li>Your password will remain unchanged until you complete the reset process</li>
+                  </ul>
+                </div>
+                
+                <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #868e96;">
+                  <p>This is an automated message from Precise Analytics ATS. Please do not reply to this email.</p>
+                </div>
               </div>
             </body>
-            </html>
-          `,
-          text: `
-Hi ${user.first_name || 'there'},
+          </html>
+        `
+      });
 
-You requested a password reset for your Precise Analytics ATS account.
+      return successResponse;
 
-Click the link below to reset your password:
-${resetLink}
-
-This link will expire in 1 hour for security reasons.
-
-If you didn't request this password reset, please ignore this email.
-
-Best regards,
-The Precise Analytics Team
-Minority-Owned • Veteran-Owned • SDVOSB Certified
-          `
-        });
-
-        console.log('✅ Password reset email sent successfully:', {
-          messageId: emailResult.data?.id,
-          email: user.email
-        });
-
-      } catch (emailError: any) {
-        console.error('❌ Failed to send password reset email:', emailError);
-        return NextResponse.json(
-          { error: 'Failed to send reset email. Please try again.' },
-          { 
-            status: 500,
-            headers: corsHeaders
-          }
-        );
-      }
-
-    } else {
-      console.log('⚠️ Password reset attempted for non-existent email:', email);
+    } finally {
+      client.release();
     }
 
-    // Always return success message to prevent email enumeration
+  } catch (error) {
+    console.error('Forgot password error:', error);
     return NextResponse.json(
-      { 
-        message: 'If an account with that email exists, you will receive a password reset link shortly.',
-        sent: true
-      },
-      { 
-        status: 200,
-        headers: corsHeaders
-      }
+      { error: 'Internal server error' },
+      { status: 500 }
     );
-
-  } catch (error: any) {
-    console.error('❌ Forgot password error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error. Please try again.' },
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
-    );
-  } finally {
-    client.release();
   }
 }

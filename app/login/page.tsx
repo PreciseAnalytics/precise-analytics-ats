@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -59,7 +59,7 @@ export default function HomePage() {
     const user = localStorage.getItem('ats-user');
     
     if (token && user) {
-      router.push('/dashboard');
+      router.push('/');
     }
   }, [router]);
 
@@ -84,7 +84,7 @@ export default function HomePage() {
         setUser(result.user);
         setIsLoginOpen(false);
         setLoginData({ email: '', password: '' });
-        router.push('/dashboard');
+        router.push('/');
       } else {
         setLoginError(result.error || 'Login failed');
       }
@@ -116,7 +116,7 @@ export default function HomePage() {
       const result = await response.json();
 
       if (result.success) {
-        setForgotPasswordStatus('✅ Password reset instructions sent to your email');
+        setForgotPasswordStatus('âœ… Password reset instructions sent to your email');
         setTimeout(() => {
           setShowForgotPassword(false);
           setForgotPasswordEmail('');
@@ -165,28 +165,28 @@ export default function HomePage() {
 
   const quickActions = [
     { 
-      icon: '👥', 
+      icon: 'ðŸ‘¥', 
       title: 'View Applications', 
       description: 'Browse all candidate submissions',
       color: 'rgba(59, 130, 246, 0.1)',
       borderColor: 'rgba(59, 130, 246, 0.3)'
     },
     { 
-      icon: '➕', 
+      icon: 'âž•', 
       title: 'Manage Positions', 
       description: 'Create and edit job postings',
       color: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.3)'
     },
     { 
-      icon: '📊', 
+      icon: 'ðŸ“Š', 
       title: 'Reports & Analytics', 
       description: 'Generate hiring insights',
       color: 'rgba(147, 51, 234, 0.1)',
       borderColor: 'rgba(147, 51, 234, 0.3)'
     },
     { 
-      icon: '🔄', 
+      icon: 'ðŸ”„', 
       title: 'Track Pipeline', 
       description: 'Monitor recruitment progress',
       color: 'rgba(249, 115, 22, 0.1)',
@@ -291,7 +291,7 @@ export default function HomePage() {
               e.currentTarget.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.3)';
             }}
           >
-            <span>🔐</span>
+            <span>ðŸ”</span>
             HR Login
           </button>
         </div>
@@ -338,7 +338,7 @@ export default function HomePage() {
                 color: 'white',
                 textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
               }}>
-                👥
+                ðŸ‘¥
               </span>
             </div>
 
@@ -386,7 +386,7 @@ export default function HomePage() {
                 color: '#86efac',
                 fontWeight: '600'
               }}>
-                🔒 Secure Internal Portal • SDVOSB Certified
+                ðŸ”’ Secure Internal Portal â€¢ SDVOSB Certified
               </span>
             </div>
 
@@ -417,7 +417,7 @@ export default function HomePage() {
                 e.currentTarget.style.boxShadow = '0 8px 20px rgba(249, 115, 22, 0.4)';
               }}
             >
-              <span style={{ fontSize: '1.5rem' }}>🚀</span>
+              <span style={{ fontSize: '1.5rem' }}>ðŸš€</span>
               Access ATS Dashboard
             </button>
           </div>
@@ -513,7 +513,7 @@ export default function HomePage() {
               borderRadius: '0.75rem',
               border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-              <span>🏛️</span>
+              <span>ðŸ›ï¸</span>
               SDVOSB Certified
             </div>
             <div style={{
@@ -527,7 +527,7 @@ export default function HomePage() {
               borderRadius: '0.75rem',
               border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-              <span>⭐</span>
+              <span>â­</span>
               SWaM Certified
             </div>
             <div style={{
@@ -541,7 +541,7 @@ export default function HomePage() {
               borderRadius: '0.75rem',
               border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-              <span>🇺🇸</span>
+              <span>ðŸ‡ºðŸ‡¸</span>
               Veteran-Owned
             </div>
           </div>
@@ -552,7 +552,7 @@ export default function HomePage() {
             margin: '0 0 0.5rem 0',
             fontWeight: '600'
           }}>
-            Precise Analytics ATS • Virginia-Based Federal Contractor
+            Precise Analytics ATS â€¢ Virginia-Based Federal Contractor
           </p>
           
           <p style={{
@@ -609,7 +609,7 @@ export default function HomePage() {
                 fontWeight: '300'
               }}
             >
-              ×
+              Ã—
             </button>
             
             <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -624,7 +624,7 @@ export default function HomePage() {
                 margin: '0 auto 2rem',
                 boxShadow: '0 12px 35px rgba(15, 118, 110, 0.4)'
               }}>
-                <span style={{ fontSize: '40px', color: 'white' }}>🔐</span>
+                <span style={{ fontSize: '40px', color: 'white' }}>ðŸ”</span>
               </div>
               <h2 style={{
                 fontSize: '2.5rem',
@@ -666,11 +666,11 @@ export default function HomePage() {
 
               {forgotPasswordStatus && (
                 <div style={{
-                  background: forgotPasswordStatus.includes('✅') ? 
+                  background: forgotPasswordStatus.includes('âœ…') ? 
                     'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                  border: `2px solid ${forgotPasswordStatus.includes('✅') ? 
+                  border: `2px solid ${forgotPasswordStatus.includes('âœ…') ? 
                     'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                  color: forgotPasswordStatus.includes('✅') ? '#22c55e' : '#ef4444',
+                  color: forgotPasswordStatus.includes('âœ…') ? '#22c55e' : '#ef4444',
                   padding: '1rem',
                   borderRadius: '12px',
                   marginBottom: '1.5rem',
@@ -809,7 +809,7 @@ export default function HomePage() {
                         e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
-                      🔑 Forgot your password?
+                      ðŸ”‘ Forgot your password?
                     </button>
                   </div>
                 </>
@@ -940,3 +940,4 @@ export default function HomePage() {
     </div>
   );
 }
+

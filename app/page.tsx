@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import HRUserManagement from '../components/HRUserManagement';
 import { Lock, Users, Search, UserPlus, FileText, BarChart3, LogOut, Home, ExternalLink, Filter, ChevronDown, Eye, Mail, Edit3, Download, Globe, MapPin, X, Briefcase, Phone, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Building, Settings, Plus, Archive, Trash2 } from 'lucide-react';
+
 // Type definitions
 type Application = {
   id: string;
@@ -129,24 +129,17 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
     setError('');
 
     try {
-      // Simple authentication check
       if (formData.email === 'careers@preciseanalytics.io' && formData.password === 'admin123') {
         localStorage.setItem('ats_auth', 'true');
+        console.log('Login successful, changing view to dashboard');
         onNavigate('dashboard');
       } else {
-        setError('Invalid credentials. Please try again.');
+        setError('Invalid credentials');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      setError('Login failed. Please try again.');
+      setError('Login failed');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleLogin();
     }
   };
 
@@ -182,8 +175,8 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
                 required
+                autoComplete="off"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Enter your email address"
               />
@@ -199,8 +192,8 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
                 required
+                autoComplete="new-password"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Enter your password"
               />
@@ -232,7 +225,8 @@ const LoginPage = ({ onNavigate }: NavigationProps) => {
 
             <div className="text-center">
               <a
-                href="/forgot-password"
+                href="#"
+                onClick={(e) => e.preventDefault()}
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
               >
                 Forgot your password?
@@ -855,8 +849,6 @@ const getNormalizedJobStatus = (job: any): JobStatus => {
   return 'inactive';
 };
 
-
-
 // JobManagementPage Component
 const JobManagementPage = ({ onNavigate }: NavigationProps) => {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -1073,8 +1065,6 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     }
   };
 
-  
-
   const handleSubmit = async () => {
     try {
       setIsSubmittingJob(true);
@@ -1280,7 +1270,6 @@ const JobManagementPage = ({ onNavigate }: NavigationProps) => {
     if (!confirm('Reactivate this job and publish it to the careers page?')) return;
     await updateJobStatus(jobId, 'published');
   };
-
 
   const deactivateJob = async (jobId: string) => {
     if (!confirm('Deactivate this job and remove it from the careers page? It will be kept in your job repository.')) return;
@@ -1878,6 +1867,10 @@ export default function App() {
 
   if (currentPage === 'jobs') {
     return <JobManagementPage onNavigate={handleNavigation} />;
+  }
+
+  if (currentPage === 'dashboard' || currentPage === 'home') {
+    return <MainDashboard onNavigate={handleNavigation} />;
   }
 
   return <MainDashboard onNavigate={handleNavigation} />;

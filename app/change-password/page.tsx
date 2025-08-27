@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -65,7 +65,7 @@ export default function ChangePasswordPage() {
         
         // Optional: Redirect after success
         setTimeout(() => {
-          router.push('/dashboard'); // or wherever appropriate
+          router.push('/'); // or wherever appropriate
         }, 3000);
       } else {
         setError(data.error || 'Failed to change password');
@@ -94,7 +94,7 @@ export default function ChangePasswordPage() {
             Your password has been updated. You'll be redirected to your dashboard shortly.
           </p>
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/')}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
           >
             Go to Dashboard
@@ -237,10 +237,11 @@ export default function ChangePasswordPage() {
             onClick={() => router.back()}
             className="text-sm text-gray-600 hover:text-gray-800 underline"
           >
-            ← Back to Account Settings
+            â† Back to Account Settings
           </button>
         </div>
       </div>
     </div>
   );
 }
+

@@ -1,155 +1,176 @@
-// app/api/auth/reset-password/route.ts
-// REPLACE your reset-password route with this version for applicant accounts:
-
+// app/api/auth/reset-password/route.ts - Updated for HR Users Only
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
-// Initialize PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://preciseanalytics.io',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-};
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
-}
-
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
-  
   try {
     const { token, password } = await request.json();
 
     if (!token || !password) {
       return NextResponse.json(
-        { error: 'Token and password are required' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
+        { error: 'Token and new password are required' },
+        { status: 400 }
       );
     }
 
     // Validate password strength
-    if (password.length < 6) {
+    const passwordValidation = {
+      minLength: password.length >= 8,
+      hasUpper: /[A-Z]/.test(password),
+      hasLower: /[a-z]/.test(password),
+      hasNumber: /\d/.test(password),
+      hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+
+    const isValidPassword = Object.values(passwordValidation).every(Boolean);
+
+    if (!isValidPassword) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
         { 
-          status: 400,
-          headers: corsHeaders
-        }
+          error: 'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character'
+        },
+        { status: 400 }
       );
     }
 
-    // Verify the JWT token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
-    } catch (jwtError) {
-      return NextResponse.json(
-        { error: 'Invalid or expired reset link. Please request a new password reset.' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
-      );
-    }
-
-    // Check if token is for password reset
-    if (decoded.type !== 'password_reset') {
-      return NextResponse.json(
-        { error: 'Invalid reset link' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
-      );
-    }
-
-    const email = decoded.email;
-    const userId = decoded.userId;
-
-    // Verify user exists in applicant_accounts table
-    const userQuery = 'SELECT id, email FROM applicant_accounts WHERE id = $1 AND email = $2';
-    const userResult = await client.query(userQuery, [userId, email]);
-
-    if (userResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { 
-          status: 404,
-          headers: corsHeaders
-        }
-      );
-    }
-
-    // Hash the new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const client = await pool.connect();
 
     try {
-      // Update user's password in applicant_accounts table
-      const updateQuery = `
-        UPDATE applicant_accounts 
-        SET password_hash = $1, updated_at = NOW()
-        WHERE id = $2 AND email = $3
-      `;
-      
-      const updateResult = await client.query(updateQuery, [hashedPassword, userId, email]);
+      // Find HR user by reset token
+      const result = await client.query(
+        `SELECT id, email, first_name, last_name, invitation_expires_at
+         FROM hr_users 
+         WHERE invitation_token = $1 AND is_active = true`,
+        [token]
+      );
 
-      if (updateResult.rowCount === 0) {
+      if (result.rows.length === 0) {
         return NextResponse.json(
-          { error: 'Failed to update password' },
-          { 
-            status: 500,
-            headers: corsHeaders
-          }
+          { error: 'Invalid or expired reset token' },
+          { status: 404 }
         );
       }
 
-      console.log('✅ Password reset successful for:', email);
+      const user = result.rows[0];
 
-      return NextResponse.json(
-        { message: 'Password has been successfully reset. You can now sign in with your new password.' },
-        { 
-          status: 200,
-          headers: corsHeaders
-        }
+      // Check if token has expired
+      if (new Date() > new Date(user.invitation_expires_at)) {
+        return NextResponse.json(
+          { error: 'Reset token has expired' },
+          { status: 410 }
+        );
+      }
+
+      // Hash the new password
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      // Update password and clear reset token
+      await client.query(
+        `UPDATE hr_users 
+         SET password_hash = $1, 
+             invitation_token = NULL, 
+             invitation_expires_at = NULL,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [hashedPassword, user.id]
       );
 
-    } catch (dbError) {
-      console.error('Database error during password reset:', dbError);
-      return NextResponse.json(
-        { error: 'Failed to update password. Please try again.' },
-        { 
-          status: 500,
-          headers: corsHeaders
-        }
+      // Log password reset completion
+      await client.query(
+        `INSERT INTO hr_user_audit (hr_user_id, action, performed_by_email, details)
+         VALUES ($1, 'password_reset_completed', $2, $3)`,
+        [
+          user.id,
+          user.email,
+          JSON.stringify({
+            timestamp: new Date().toISOString(),
+            ip_address: request.ip || 'unknown'
+          })
+        ]
       );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Password reset successfully'
+      });
+
+    } finally {
+      client.release();
     }
 
   } catch (error) {
-    console.error('Password reset error:', error);
+    console.error('Reset password error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
+      { status: 500 }
     );
-  } finally {
-    client.release();
+  }
+}
+
+// GET method to verify reset token
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Token is required' },
+        { status: 400 }
+      );
+    }
+
+    const client = await pool.connect();
+
+    try {
+      const result = await client.query(
+        `SELECT id, email, first_name, invitation_expires_at
+         FROM hr_users 
+         WHERE invitation_token = $1 AND is_active = true`,
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return NextResponse.json(
+          { valid: false, error: 'Invalid token' },
+          { status: 404 }
+        );
+      }
+
+      const user = result.rows[0];
+
+      // Check if token has expired
+      if (new Date() > new Date(user.invitation_expires_at)) {
+        return NextResponse.json(
+          { valid: false, error: 'Token has expired' },
+          { status: 410 }
+        );
+      }
+
+      return NextResponse.json({
+        valid: true,
+        user: {
+          email: user.email,
+          firstName: user.first_name
+        }
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

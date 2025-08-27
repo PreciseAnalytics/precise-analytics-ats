@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
@@ -46,14 +46,14 @@ const UnifiedHeader: React.FC<HeaderProps> = ({ isATS = false }) => {
   ];
 
   const atsNavItems = [
-  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Dashboard', href: '/' },
   { label: 'Careers', href: '/careers' },
   { label: 'Applications', href: '/applications' }
   // Removing external link for now to fix build
 ];
 
   const navItems = isATS ? atsNavItems : mainNavItems;
-  const logoHref = isATS ? '/dashboard' : '/';
+  const logoHref = isATS ? '/' : '/';
 
   const isActivePage = (href: string) => {
     if (typeof window === 'undefined') return false;
@@ -226,7 +226,7 @@ export default function CareersPage() {
   }, []);
 
   const debugAPICalls = async () => {
-    console.log('🔍 DEBUGGING API SYNCHRONIZATION');
+    console.log('ðŸ” DEBUGGING API SYNCHRONIZATION');
     
     try {
       console.log('Testing ATS API...');
@@ -241,13 +241,13 @@ export default function CareersPage() {
       
       if (atsResponse.ok) {
         const atsData = await atsResponse.json();
-        console.log('✅ ATS API Response:', atsData);
-        console.log('📊 ATS Job Count:', Array.isArray(atsData) ? atsData.length : atsData.jobs?.length);
+        console.log('âœ… ATS API Response:', atsData);
+        console.log('ðŸ“Š ATS Job Count:', Array.isArray(atsData) ? atsData.length : atsData.jobs?.length);
       } else {
-        console.error('❌ ATS API Failed:', atsResponse.statusText);
+        console.error('âŒ ATS API Failed:', atsResponse.statusText);
       }
     } catch (atsError) {
-      console.error('❌ ATS API Error:', atsError);
+      console.error('âŒ ATS API Error:', atsError);
     }
     
     try {
@@ -257,20 +257,20 @@ export default function CareersPage() {
       
       if (localResponse.ok) {
         const localData = await localResponse.json();
-        console.log('✅ Local API Response:', localData);
-        console.log('📊 Local Job Count:', localData.positions?.length);
+        console.log('âœ… Local API Response:', localData);
+        console.log('ðŸ“Š Local Job Count:', localData.positions?.length);
       } else {
-        console.error('❌ Local API Failed:', localResponse.statusText);
+        console.error('âŒ Local API Failed:', localResponse.statusText);
       }
     } catch (localError) {
-      console.error('❌ Local API Error:', localError);
+      console.error('âŒ Local API Error:', localError);
     }
   };
 
   const fetchPositions = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching positions from ATS API...');
+      console.log('ðŸ”„ Fetching positions from ATS API...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -291,7 +291,7 @@ export default function CareersPage() {
       }
       
       const data = await response.json();
-      console.log('📋 ATS API Success - Raw Response:', data);
+      console.log('ðŸ“‹ ATS API Success - Raw Response:', data);
       
       let jobsArray: any[] = [];
       if (Array.isArray(data)) {
@@ -301,11 +301,11 @@ export default function CareersPage() {
       } else if (data.positions && Array.isArray(data.positions)) {
         jobsArray = data.positions;
       } else {
-        console.warn('⚠️ Unexpected ATS API response format:', data);
+        console.warn('âš ï¸ Unexpected ATS API response format:', data);
         throw new Error('Invalid API response format');
       }
       
-      console.log(`✅ Found ${jobsArray.length} jobs in ATS`);
+      console.log(`âœ… Found ${jobsArray.length} jobs in ATS`);
       
       const processedPositions = jobsArray
         .filter(job => job.status === 'active')
@@ -330,14 +330,14 @@ export default function CareersPage() {
           benefits: pos.benefits
         }));
       
-      console.log(`✅ Processed ${processedPositions.length} active positions from ATS`);
+      console.log(`âœ… Processed ${processedPositions.length} active positions from ATS`);
       setPositions(processedPositions);
       
     } catch (error) {
-      console.error('❌ ATS API failed, trying fallback:', error);
+      console.error('âŒ ATS API failed, trying fallback:', error);
       
       try {
-        console.log('🔄 Using fallback local API...');
+        console.log('ðŸ”„ Using fallback local API...');
         const fallbackResponse = await fetch('/api/positions?status=active&include_count=true');
         
         if (!fallbackResponse.ok) {
@@ -345,7 +345,7 @@ export default function CareersPage() {
         }
         
         const fallbackData = await fallbackResponse.json();
-        console.log('📋 Fallback API Response:', fallbackData);
+        console.log('ðŸ“‹ Fallback API Response:', fallbackData);
         
         if (fallbackData.success && fallbackData.positions) {
           const processedFallback = fallbackData.positions.map((pos: any) => ({
@@ -355,14 +355,14 @@ export default function CareersPage() {
               : pos.requirements || []
           }));
           
-          console.log(`⚠️ Using fallback: ${processedFallback.length} jobs from local API`);
+          console.log(`âš ï¸ Using fallback: ${processedFallback.length} jobs from local API`);
           setPositions(processedFallback);
         } else {
-          console.error('❌ Fallback API returned invalid data');
+          console.error('âŒ Fallback API returned invalid data');
           setPositions([]);
         }
       } catch (fallbackError) {
-        console.error('❌ Both ATS and fallback APIs failed:', fallbackError);
+        console.error('âŒ Both ATS and fallback APIs failed:', fallbackError);
         setPositions([]);
       }
     } finally {
@@ -518,21 +518,21 @@ export default function CareersPage() {
     setSubmitError(null);
 
     try {
-      console.log('🚀 Starting application submission to ATS...');
+      console.log('ðŸš€ Starting application submission to ATS...');
       
       let resumeUrl = '';
       let coverLetterFileUrl = '';
 
       if (formData.resume) {
-        console.log('📎 Uploading resume...');
+        console.log('ðŸ“Ž Uploading resume...');
         resumeUrl = await uploadFile(formData.resume, 'resume');
-        console.log('✅ Resume uploaded:', resumeUrl);
+        console.log('âœ… Resume uploaded:', resumeUrl);
       }
 
       if (formData.coverLetterFile) {
-        console.log('📎 Uploading cover letter...');
+        console.log('ðŸ“Ž Uploading cover letter...');
         coverLetterFileUrl = await uploadFile(formData.coverLetterFile, 'cover_letter');
-        console.log('✅ Cover letter uploaded:', coverLetterFileUrl);
+        console.log('âœ… Cover letter uploaded:', coverLetterFileUrl);
       }
 
       const applicationData = {
@@ -550,7 +550,7 @@ export default function CareersPage() {
         portfolio_url: formData.portfolioUrl.trim() || null
       };
 
-      console.log('📝 Submitting application to ATS:', {
+      console.log('ðŸ“ Submitting application to ATS:', {
         name: applicationData.applicant_name,
         email: applicationData.email,
         position_id: applicationData.job_position_id,
@@ -571,7 +571,7 @@ export default function CareersPage() {
         throw new Error(result.error || `ATS API error: ${response.status}`);
       }
 
-      console.log('✅ Application submitted successfully to ATS:', {
+      console.log('âœ… Application submitted successfully to ATS:', {
         applicationId: result.applicationId,
         message: result.message
       });
@@ -612,7 +612,7 @@ export default function CareersPage() {
       }
 
     } catch (error) {
-      console.error('❌ Application submission error:', error);
+      console.error('âŒ Application submission error:', error);
       
       let errorMessage = 'An unexpected error occurred. Please try again or contact us directly at careers@preciseanalytics.io';
       
@@ -677,14 +677,14 @@ export default function CareersPage() {
         <Container>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <PageTitle>Join Our Team</PageTitle>
-            <PageSubtitle>Empowering missions through data—together.</PageSubtitle>
+            <PageSubtitle>Empowering missions through dataâ€”together.</PageSubtitle>
           </motion.div>
 
           {/* Success Message */}
           {submitSuccess && (
             <SuccessMessage>
               <SuccessHeader>
-                <SuccessIcon>✅</SuccessIcon>
+                <SuccessIcon>âœ…</SuccessIcon>
                 <SuccessTitle>Application Successfully Submitted!</SuccessTitle>
               </SuccessHeader>
               <SuccessContent>
@@ -716,7 +716,7 @@ export default function CareersPage() {
               </LoadingContainer>
             ) : positions.length === 0 ? (
               <NoPositionsMessage>
-                <NoPositionsIcon>📋</NoPositionsIcon>
+                <NoPositionsIcon>ðŸ“‹</NoPositionsIcon>
                 <NoPositionsTitle>No Open Positions</NoPositionsTitle>
                 <NoPositionsText>
                   We don't have any open positions at the moment, but we're always looking for talented individuals to join our team.
@@ -740,7 +740,7 @@ export default function CareersPage() {
                         <SalaryRange>{formatSalary(position.salary_min, position.salary_max, position.salary_range)}</SalaryRange>
                       )}
                       {position.security_clearance && position.security_clearance !== 'None' && (
-                        <SecurityClearance>🔒 {position.security_clearance} Clearance</SecurityClearance>
+                        <SecurityClearance>ðŸ”’ {position.security_clearance} Clearance</SecurityClearance>
                       )}
                       {position.applications_count !== undefined && (
                         <ApplicationCount>{position.applications_count} applications</ApplicationCount>
@@ -753,7 +753,7 @@ export default function CareersPage() {
                       <RequirementsTitle>Key Requirements:</RequirementsTitle>
                       <RequirementsList>
                         {position.requirements.map((req, i) => (
-                          <RequirementItem key={i}>{req.replace(/^[•\-\*]\s*/, '')}</RequirementItem>
+                          <RequirementItem key={i}>{req.replace(/^[â€¢\-\*]\s*/, '')}</RequirementItem>
                         ))}
                       </RequirementsList>
                     </RequirementsSection>
@@ -785,15 +785,15 @@ export default function CareersPage() {
                 <ModalHeader>
                   <div>
                     <ModalTitle>Apply for {selectedPosition.title}</ModalTitle>
-                    <ModalSubtitle>{selectedPosition.department} • {selectedPosition.location}</ModalSubtitle>
+                    <ModalSubtitle>{selectedPosition.department} â€¢ {selectedPosition.location}</ModalSubtitle>
                   </div>
-                  <CloseButton onClick={() => setShowApplicationForm(false)}>×</CloseButton>
+                  <CloseButton onClick={() => setShowApplicationForm(false)}>Ã—</CloseButton>
                 </ModalHeader>
 
                 {submitError && (
                   <ErrorMessage>
                     <ErrorHeader>
-                      <ErrorIcon>⚠️</ErrorIcon>
+                      <ErrorIcon>âš ï¸</ErrorIcon>
                       <ErrorTitle>Application Submission Issue</ErrorTitle>
                     </ErrorHeader>
                     <ErrorContent>
@@ -983,7 +983,7 @@ export default function CareersPage() {
                     <SubmitBtn type="submit" disabled={isSubmitting}>
                       {isSubmitting ? (
                         <>
-                          <span style={{ marginRight: '0.5rem' }}>📤</span>
+                          <span style={{ marginRight: '0.5rem' }}>ðŸ“¤</span>
                           Submitting Application...
                         </>
                       ) : (
@@ -1564,7 +1564,7 @@ const RequirementItem = styled.li`
   color: rgb(var(--text), 0.8);
 
   &:before {
-    content: '•';
+    content: 'â€¢';
     color: rgb(255, 125, 0);
     font-weight: bold;
     position: absolute;
@@ -2054,3 +2054,4 @@ const CommitmentText = styled.p`
     }
   }
 `;
+

@@ -1,4 +1,4 @@
-// lib/email-templates.ts
+﻿// lib/email-templates.ts
 // Email templates for your ATS system
 
 export interface ApplicationEmailData {
@@ -28,7 +28,7 @@ export const applicationConfirmationTemplate = (data: ApplicationEmailData) => `
   
   <!-- Content -->
   <div style="padding: 3rem 2rem; background: #f8f9fa;">
-    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Thank you for your application! 🎉</h2>
+    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Thank you for your application! ðŸŽ‰</h2>
     
     <p style="color: #333; line-height: 1.6; margin-bottom: 1.5rem;">
       Hi <strong>${data.candidateName}</strong>,
@@ -93,7 +93,7 @@ export const applicationConfirmationTemplate = (data: ApplicationEmailData) => `
   <!-- Footer -->
   <div style="background: #2B4566; padding: 2rem; text-align: center; border-radius: 0 0 12px 12px;">
     <p style="color: white; margin: 0; font-size: 0.9rem; opacity: 0.8;">
-      Precise Analytics | Richmond, VA | Veteran-Owned • SDVOSB • Minority-Owned
+      Precise Analytics | Richmond, VA | Veteran-Owned â€¢ SDVOSB â€¢ Minority-Owned
     </p>
     <p style="color: white; margin: 0.5rem 0 0 0; font-size: 0.8rem; opacity: 0.6;">
       Visit us at <a href="https://preciseanalytics.io" style="color: #9ACD32; text-decoration: none;">preciseanalytics.io</a>
@@ -112,7 +112,7 @@ export const interviewInviteTemplate = (data: InterviewEmailData) => `
   
   <!-- Content -->
   <div style="padding: 3rem 2rem; background: #f8f9fa;">
-    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Interview Invitation! 🎯</h2>
+    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Interview Invitation! ðŸŽ¯</h2>
     
     <p style="color: #333; line-height: 1.6; margin-bottom: 1.5rem;">
       Hi <strong>${data.candidateName}</strong>,
@@ -184,7 +184,7 @@ export const interviewInviteTemplate = (data: InterviewEmailData) => `
   <!-- Footer -->
   <div style="background: #2B4566; padding: 2rem; text-align: center; border-radius: 0 0 12px 12px;">
     <p style="color: white; margin: 0; font-size: 0.9rem; opacity: 0.8;">
-      Precise Analytics | Richmond, VA | Veteran-Owned • SDVOSB • Minority-Owned
+      Precise Analytics | Richmond, VA | Veteran-Owned â€¢ SDVOSB â€¢ Minority-Owned
     </p>
     <p style="color: white; margin: 0.5rem 0 0 0; font-size: 0.8rem; opacity: 0.6;">
       Visit us at <a href="https://preciseanalytics.io" style="color: #9ACD32; text-decoration: none;">preciseanalytics.io</a>
@@ -197,7 +197,7 @@ export const interviewInviteTemplate = (data: InterviewEmailData) => `
 export const hrNotificationTemplate = (data: ApplicationEmailData) => `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
   <div style="background: #2B4566; padding: 2rem; color: white; border-radius: 8px 8px 0 0;">
-    <h1 style="margin: 0; font-size: 1.5rem;">🔔 New Application Received</h1>
+    <h1 style="margin: 0; font-size: 1.5rem;">ðŸ”” New Application Received</h1>
     <p style="margin: 0.5rem 0 0 0; opacity: 0.8;">Precise Analytics ATS System</p>
   </div>
   
@@ -230,10 +230,11 @@ export const hrNotificationTemplate = (data: ApplicationEmailData) => `
     </div>
     
     <p style="margin: 1rem 0 0 0; text-align: center;">
-      <a href="http://localhost:3000/dashboard" style="background: linear-gradient(135deg, #9ACD32, #40E0D0); color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+      <a href="http://localhost:3000/" style="background: linear-gradient(135deg, #9ACD32, #40E0D0); color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
         View in ATS Dashboard
       </a>
     </p>
   </div>
 </div>
 `;
+

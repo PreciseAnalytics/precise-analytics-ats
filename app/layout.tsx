@@ -1,4 +1,4 @@
-﻿export const metadata = {
+export const metadata = {
   title: 'Precise Analytics ATS',
   description: 'Applicant Tracking System for Precise Analytics',
 }

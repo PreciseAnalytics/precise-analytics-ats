@@ -1,4 +1,4 @@
-// lib/email-service.ts
+﻿// lib/email-service.ts
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -33,7 +33,7 @@ export class EmailService {
         return { success: false, error };
       }
 
-      console.log('✅ Confirmation email sent to:', data.candidateEmail);
+      console.log('âœ… Confirmation email sent to:', data.candidateEmail);
       return { success: true, emailId: emailData?.id };
 
     } catch (error) {
@@ -50,7 +50,7 @@ export class EmailService {
       const { data: emailData, error } = await resend.emails.send({
         from: 'ATS System <noreply@preciseanalytics.io>',
         to: ['careers@preciseanalytics.io'], // Add other HR emails as needed
-        subject: `🔔 New Application: ${data.position} - ${data.candidateName}`,
+        subject: `ðŸ”” New Application: ${data.position} - ${data.candidateName}`,
         html: this.hrNotificationTemplate(data)
       });
 
@@ -59,7 +59,7 @@ export class EmailService {
         return { success: false, error };
       }
 
-      console.log('✅ HR notification sent for application:', data.applicationId);
+      console.log('âœ… HR notification sent for application:', data.applicationId);
       return { success: true, emailId: emailData?.id };
 
     } catch (error) {
@@ -98,7 +98,7 @@ export class EmailService {
   
   <!-- Content -->
   <div style="padding: 3rem 2rem; background: #f8f9fa;">
-    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Thank you for your application! 🎉</h2>
+    <h2 style="color: #2B4566; margin: 0 0 1.5rem 0; font-size: 1.8rem;">Thank you for your application! ðŸŽ‰</h2>
     
     <p style="color: #333; line-height: 1.6; margin-bottom: 1.5rem;">
       Hi <strong>${data.candidateName}</strong>,
@@ -174,7 +174,7 @@ export class EmailService {
   <!-- Footer -->
   <div style="background: #2B4566; padding: 2rem; text-align: center; border-radius: 0 0 12px 12px;">
     <p style="color: white; margin: 0; font-size: 0.9rem; opacity: 0.8;">
-      Precise Analytics | Richmond, VA | Veteran-Owned • SDVOSB • Minority-Owned
+      Precise Analytics | Richmond, VA | Veteran-Owned â€¢ SDVOSB â€¢ Minority-Owned
     </p>
     <p style="color: white; margin: 0.5rem 0 0 0; font-size: 0.8rem; opacity: 0.6;">
       Visit us at <a href="https://preciseanalytics.io" style="color: #9ACD32; text-decoration: none;">preciseanalytics.io</a>
@@ -191,7 +191,7 @@ export class EmailService {
     return `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
   <div style="background: #2B4566; padding: 2rem; color: white; border-radius: 8px 8px 0 0;">
-    <h1 style="margin: 0; font-size: 1.5rem;">🔔 New Application Received</h1>
+    <h1 style="margin: 0; font-size: 1.5rem;">ðŸ”” New Application Received</h1>
     <p style="margin: 0.5rem 0 0 0; opacity: 0.8;">Precise Analytics ATS System</p>
   </div>
   
@@ -241,13 +241,13 @@ export class EmailService {
     
     <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(154, 205, 50, 0.1); border-left: 4px solid #9ACD32; border-radius: 4px;">
       <p style="margin: 0; color: #2d5016;">
-        <strong>🎯 Action Required:</strong> Please review this application in the ATS dashboard and update the candidate's status.
+        <strong>ðŸŽ¯ Action Required:</strong> Please review this application in the ATS dashboard and update the candidate's status.
       </p>
     </div>
     
     <div style="text-align: center; margin: 2rem 0;">
-      <a href="http://localhost:3000/dashboard" style="background: linear-gradient(135deg, #9ACD32, #40E0D0); color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(154, 205, 50, 0.3);">
-        📋 View in ATS Dashboard
+      <a href="http://localhost:3000/" style="background: linear-gradient(135deg, #9ACD32, #40E0D0); color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(154, 205, 50, 0.3);">
+        ðŸ“‹ View in ATS Dashboard
       </a>
     </div>
     
@@ -259,3 +259,4 @@ export class EmailService {
     `;
   }
 }
+
